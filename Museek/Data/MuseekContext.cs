@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Museek.Configurations.Entities;
 using Museek.Data;
 
 namespace Museek.Data
@@ -18,6 +19,18 @@ namespace Museek.Data
         public DbSet<Museek.Domain.Song> Song { get; set; } = default!;
         public DbSet<Museek.Domain.User> User { get; set; } = default!;
         public DbSet<Museek.Domain.UserSong> UserSong { get; set; } = default!;
+
+
+        protected override void OnModelCreating(ModelBuilder builder)
+        {
+            base.OnModelCreating(builder);
+            builder.ApplyConfiguration(new RoleSeed());
+            builder.ApplyConfiguration(new UserRoleSeed());
+            builder.ApplyConfiguration(new UserSeed());
+
+        }
+
+
 
     }
 }
