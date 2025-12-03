@@ -1,5 +1,38 @@
-﻿<h3>Library</h3>
+﻿@page "/library"
+
+<PageTitle>Museek | Library</PageTitle>
+
+<div class="library-container">
+    <h1>Your Library</h1>
+    <p>Your personal music collection will be displayed here.</p>
+
+    <div class="library-sections">
+        <section class="library-section">
+            <h2>Playlists</h2>
+            <div class="library-grid">
+                <!-- Add your playlists here -->
+                <p class="empty-message">No playlists yet</p>
+            </div>
+        </section>
+
+        <section class="library-section">
+            <h2>Liked Songs</h2>
+            <div class="library-grid">
+                <!-- Add your liked songs here -->
+                <p class="empty-message">No liked songs yet</p>
+            </div>
+        </section>
+
+        <section class="library-section">
+            <h2>Albums</h2>
+            <div class="library-grid">
+                <!-- Add your albums here -->
+                <p class="empty-message">No albums yet</p>
+            </div>
+        </section>
+    </div>
+</div>
 
 @code {
-
+    // Add your library logic here
 }

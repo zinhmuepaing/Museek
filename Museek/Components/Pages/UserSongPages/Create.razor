@@ -1,0 +1,69 @@
+﻿@page "/usersongs/create"
+@using Microsoft.EntityFrameworkCore
+@using Museek.Domain
+@inject IDbContextFactory<Museek.Data.MuseekContext> DbFactory
+@inject NavigationManager NavigationManager
+
+<PageTitle>Create</PageTitle>
+
+<h1>Create</h1>
+
+<h2>UserSong</h2>
+<hr />
+<div class="row">
+    <div class="col-md-4">
+        <EditForm method="post" Model="UserSong" OnValidSubmit="AddUserSong" FormName="create" Enhance>
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" role="alert"/>
+            <div class="mb-3">
+                <label for="userid" class="form-label">UserId:</label> 
+                <InputNumber id="userid" @bind-Value="UserSong.UserId" class="form-control" /> 
+                <ValidationMessage For="() => UserSong.UserId" class="text-danger" /> 
+            </div>        
+            <div class="mb-3">
+                <label for="songid" class="form-label">SongId:</label> 
+                <InputNumber id="songid" @bind-Value="UserSong.SongId" class="form-control" /> 
+                <ValidationMessage For="() => UserSong.SongId" class="text-danger" /> 
+            </div>        
+            <div class="mb-3">
+                <label for="datecreated" class="form-label">DateCreated:</label> 
+                <InputDate id="datecreated" @bind-Value="UserSong.DateCreated" class="form-control" /> 
+                <ValidationMessage For="() => UserSong.DateCreated" class="text-danger" /> 
+            </div>        
+            <div class="mb-3">
+                <label for="dateupdated" class="form-label">DateUpdated:</label> 
+                <InputDate id="dateupdated" @bind-Value="UserSong.DateUpdated" class="form-control" /> 
+                <ValidationMessage For="() => UserSong.DateUpdated" class="text-danger" /> 
+            </div>        
+            <div class="mb-3">
+                <label for="createdby" class="form-label">CreatedBy:</label> 
+                <InputText id="createdby" @bind-Value="UserSong.CreatedBy" class="form-control" /> 
+                <ValidationMessage For="() => UserSong.CreatedBy" class="text-danger" /> 
+            </div>        
+            <div class="mb-3">
+                <label for="updatedby" class="form-label">UpdatedBy:</label> 
+                <InputText id="updatedby" @bind-Value="UserSong.UpdatedBy" class="form-control" /> 
+                <ValidationMessage For="() => UserSong.UpdatedBy" class="text-danger" /> 
+            </div>        
+            <button type="submit" class="btn btn-primary">Create</button>
+        </EditForm>
+    </div>
+</div>
+
+<div>
+    <a href="/usersongs">Back to List</a>
+</div>
+
+@code {
+    [SupplyParameterFromForm]
+    private UserSong UserSong { get; set; } = new();
+
+    // To protect from overposting attacks, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
+    private async Task AddUserSong()
+    {
+        using var context = DbFactory.CreateDbContext();
+        context.UserSong.Add(UserSong);
+        await context.SaveChangesAsync();
+        NavigationManager.NavigateTo("/usersongs");
+    }
+}

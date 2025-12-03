@@ -1,224 +1,245 @@
 ﻿@page "/"
+@inject IJSRuntime JSRuntime
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Museek | Home</title>
-    <link rel="stylesheet" href="home.css" />
-</head>
-<body>
-    <!-- Navigation Bar -->
-    <header class="navbar">
-        <div class="logo">
-            <img src="MuseekLogo.png" alt="Museek Logo" class="logo-img" />
-            <h1>Museek</h1>
-        </div>
-        <nav class="nav-links">
-            <a href="#" class="active"><img src="homeIcon.png" class="icon" /> Home</a>
-            <a href="#"><img src="album.png" class="icon" /> Library</a>
-            <a href="#"><img src="search.png" class="icon" /> Discover</a>
-        </nav>
-        <div class="user-profile">
-            <img src="userIcon.png" alt="User" class="profile-icon" />
-        </div>
-    </header>
+<PageTitle>Museek | Home</PageTitle>
 
-    <!-- Search Bar -->
-    <section class="search-section">
-        <div class="search-bar">
-            <img src="search.png" alt="Search" class="search-icon" />
-            <input type="text" id="searchInput" placeholder="Search songs, artists, or albums..." />
-        </div>
-    </section>
-
-    <!-- Page Grid -->
-    <div class="page-grid">
-        <!-- Left Side (Content) -->
-        <main class="left-content">
-            <section class="music-section">
-                <h2>Popular Songs</h2>
-                <div class="music-grid" id="popularSongs"></div>
-            </section>
-
-            <section class="music-section">
-                <h2>Trending Artists</h2>
-                <div class="artist-grid" id="trendingArtists"></div>
-            </section>
-
-            <section class="music-section">
-                <h2>New Releases</h2>
-                <div class="music-grid" id="newReleases"></div>
-            </section>
-        </main>
-
-        <!-- Right Side (Video and Player) -->
-        <aside class="right-content">
-            <!-- Random Video Section -->
-            <section class="video-box">
-                <div class="video-frame">
-                    <video autoplay muted loop playsinline>
-                        <source src="sunflower.mp4" type="video/mp4">
-                        Your browser does not support the video tag.
-                    </video>
-                </div>
-            </section>
-
-
-            <!-- Music Player Section -->
-            <section class="player-box">
-                <div class="player-left">
-                    <img id="songCover" src="(album cover path here).png" alt="Cover" />
-                    <div class="song-info">
-                        <h4 id="songTitle">Rhythmic Echoes</h4>
-                        <p id="songArtist">Alex Harmon</p>
-                    </div>
-                    <img src="heartBefore.png" alt="like" class="icon-btn" />
-                </div>
-
-                <div class="player-controls">
-                    <input type="range" id="progressBar" min="0" max="100" value="0" />
-                    <div class="control-buttons">
-                        <img src="shuffleButton.png" alt="Shuffle" class="control-icon" />
-                        <img src="prevButton.png" alt="Previous" class="control-icon" />
-                        <img src="playButton.png" id="playPause" alt="Play" class="control-icon main" />
-                        <img src="nextButton.png" alt="Next" class="control-icon" />
-                        <img src="repeatButton.png" alt="Repeat" class="control-icon" />
-                    </div>
-                    <div class="time-display">
-                        <span id="currentTime">00:00</span>
-                        <span id="remainingTime">-00:00</span>
-                    </div>
-                </div>
-
-                <div class="volume-control">
-                    <img src="volume.png" alt="Volume" class="control-icon" />
-                    <input type="range" id="volumeBar" min="0" max="1" step="0.01" value="0.7" />
-                </div>
-
-                <!-- Hidden audio element -->
-                <audio id="audio" preload="metadata">
-                    <source src="(song file path here).mp3" type="audio/mpeg" />
-                </audio>
-            </section>
-        </aside>
+<!-- Search Bar -->
+<section class="search-section">
+    <div class="search-bar">
+        <img src="images/search.png" alt="Search" class="search-icon" />
+        <input type="text" @bind="searchQuery" @onkeyup="HandleSearch" placeholder="Search songs, artists, or albums..." />
     </div>
+</section>
 
-    <!-- Footer -->
-    <footer class="footer">
-        <p>&copy; 2025 Museek Pte Ltd. All rights reserved.</p>
-        <div class="footer-links">
-            <a href="#">FAQ</a>
-            <a href="#">Contact</a>
-            <a href="#">Terms & Conditions</a>
-        </div>
-    </footer>
+<!-- Page Grid -->
+<div class="page-grid">
+    <!-- Left Side (Content) -->
+    <main class="left-content">
+        <section class="music-section">
+            <h2>Popular Songs</h2>
+            <div class="music-grid">
+                @foreach (var song in popularSongs)
+                {
+                    <div class="music-card" @onclick="() => PlaySong(song)">
+                        <img src="@song.Image" alt="@song.Title">
+                        <h4>@song.Title</h4>
+                        <p>@song.Artist</p>
+                    </div>
+                }
+            </div>
+        </section>
 
-    <script>
+        <section class="music-section">
+            <h2>Trending Artists</h2>
+            <div class="artist-grid">
+                @foreach (var artist in trendingArtists)
+                {
+                    <div class="artist-card">
+                        <img src="@artist.Image" alt="@artist.Name">
+                        <h4>@artist.Name</h4>
+                    </div>
+                }
+            </div>
+        </section>
 
-            // Sample data
-        const popularSongs = [
-          { title: "Midnight Echo", artist: "Luna Grey", image: "(song image path 1).png" },
-          { title: "Electric Sky", artist: "Nova Beats", image: "(song image path 2).png" },
-          { title: "Gravity", artist: "Atlas Sound", image: "(song image path 3).png" }
-        ];
+        <section class="music-section">
+            <h2>New Releases</h2>
+            <div class="music-grid">
+                @foreach (var release in newReleases)
+                {
+                    <div class="music-card" @onclick="() => PlaySong(release)">
+                        <img src="@release.Image" alt="@release.Title">
+                        <h4>@release.Title</h4>
+                        <p>@release.Artist</p>
+                    </div>
+                }
+            </div>
+        </section>
+    </main>
 
-        const trendingArtists = [
-          { name: "Aria Stone", image: "(artist image 1).png" },
-          { name: "Eon Wave", image: "(artist image 2).png" },
-          { name: "Sora", image: "(artist image 3).png" }
-        ];
+    <!-- Right Side (Video and Player) -->
+    <aside class="right-content">
+        <!-- Random Video Section -->
+        <section class="video-box">
+            <div class="video-frame">
+                <video autoplay muted loop playsinline>
+                    <source src="videos/sunflower.mp4" type="video/mp4">
+                    <source src="videos/sunflower.webm" type="video/webm">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+        </section>
 
-        const newReleases = [
-          { title: "Dusk Till Dawn", artist: "Aether", image: "(new release 1).png" },
-          { title: "Wildfire", artist: "Vexx", image: "(new release 2).png" },
-          { title: "Lost Frequencies", artist: "EchoLine", image: "(new release 3).png" }
-        ];
+        <!-- Music Player Section -->
+        <section class="player-box">
+            <div class="player-left">
+                <img id="songCover" src="@currentSong.Image" alt="Cover" />
+                <div class="song-info">
+                    <h4 id="songTitle">@currentSong.Title</h4>
+                    <p id="songArtist">@currentSong.Artist</p>
+                </div>
+                <img src="@(isLiked ? "images/heartAfter.png" : "images/heartBefore.png")"
+                     alt="like"
+                     class="icon-btn"
+                     @onclick="ToggleLike" />
+            </div>
 
-        // Functions to render cards
-        function createMusicCard(song) {
-          return `
-            <div class="music-card">
-              <img src="${song.image}" alt="${song.title}">
-              <h4>${song.title}</h4>
-              <p>${song.artist}</p>
-            </div>`;
+            <div class="player-controls">
+                <input type="range" id="progressBar" min="0" max="100" value="@progress" @oninput="SeekAudio" />
+                <div class="control-buttons">
+                    <img src="images/shuffleButton.png" alt="Shuffle" class="control-icon" @onclick="ToggleShuffle" />
+                    <img src="images/prevButton.png" alt="Previous" class="control-icon" @onclick="PreviousSong" />
+                    <img src="@(isPlaying ? "images/pauseButton.png" : "images/playButton.png")"
+                         id="playPause"
+                         alt="Play"
+                         class="control-icon main"
+                         @onclick="TogglePlayPause" />
+                    <img src="images/nextButton.png" alt="Next" class="control-icon" @onclick="NextSong" />
+                    <img src="images/repeatButton.png" alt="Repeat" class="control-icon" @onclick="ToggleRepeat" />
+                </div>
+                <div class="time-display">
+                    <span id="currentTime">@currentTime</span>
+                    <span id="remainingTime">-@remainingTime</span>
+                </div>
+            </div>
+
+            <div class="volume-control">
+                <img src="images/volume.png" alt="Volume" class="control-icon" />
+                <input type="range" id="volumeBar" min="0" max="100" value="@volume" @oninput="ChangeVolume" />
+            </div>
+
+            <!-- Hidden audio element -->
+            <audio id="audioPlayer" preload="metadata">
+                <source src="@currentSong.AudioPath" type="audio/mpeg" />
+            </audio>
+        </section>
+    </aside>
+</div>
+
+@code {
+    private string searchQuery = "";
+    private bool isPlaying = false;
+    private bool isLiked = false;
+    private double progress = 0;
+    private double volume = 70;
+    private string currentTime = "00:00";
+    private string remainingTime = "00:00";
+
+    // Sample data
+    private List<Song> popularSongs = new()
+    {
+        new Song { Title = "Midnight Echo", Artist = "Luna Grey", Image = "images/song1.png", AudioPath = "audio/song1.mp3" },
+        new Song { Title = "Electric Sky", Artist = "Nova Beats", Image = "images/song2.png", AudioPath = "audio/song2.mp3" },
+        new Song { Title = "Gravity", Artist = "Atlas Sound", Image = "images/song3.png", AudioPath = "audio/song3.mp3" }
+    };
+
+    private List<Artist> trendingArtists = new()
+    {
+        new Artist { Name = "Aria Stone", Image = "images/artist1.png" },
+        new Artist { Name = "Eon Wave", Image = "images/artist2.png" },
+        new Artist { Name = "Sora", Image = "images/artist3.png" }
+    };
+
+    private List<Song> newReleases = new()
+    {
+        new Song { Title = "Dusk Till Dawn", Artist = "Aether", Image = "images/release1.png", AudioPath = "audio/release1.mp3" },
+        new Song { Title = "Wildfire", Artist = "Vexx", Image = "images/release2.png", AudioPath = "audio/release2.mp3" },
+        new Song { Title = "Lost Frequencies", Artist = "EchoLine", Image = "images/release3.png", AudioPath = "audio/release3.mp3" }
+    };
+
+    private Song currentSong = new Song
+    {
+        Title = "Rhythmic Echoes",
+        Artist = "Alex Harmon",
+        Image = "images/default-cover.png",
+        AudioPath = "audio/default.mp3"
+    };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("initializeAudioPlayer");
         }
+    }
 
-        function createArtistCard(artist) {
-          return `
-            <div class="artist-card">
-              <img src="${artist.image}" alt="${artist.name}">
-              <h4>${artist.name}</h4>
-            </div>`;
+    private async Task TogglePlayPause()
+    {
+        isPlaying = !isPlaying;
+        await JSRuntime.InvokeVoidAsync("togglePlayPause");
+    }
+
+    private void ToggleLike()
+    {
+        isLiked = !isLiked;
+    }
+
+    private async Task PlaySong(Song song)
+    {
+        currentSong = song;
+        isPlaying = true;
+        await JSRuntime.InvokeVoidAsync("playSong", song.AudioPath);
+    }
+
+    private async Task PreviousSong()
+    {
+        await JSRuntime.InvokeVoidAsync("previousSong");
+    }
+
+    private async Task NextSong()
+    {
+        await JSRuntime.InvokeVoidAsync("nextSong");
+    }
+
+    private async Task SeekAudio(ChangeEventArgs e)
+    {
+        if (double.TryParse(e.Value?.ToString(), out double value))
+        {
+            progress = value;
+            await JSRuntime.InvokeVoidAsync("seekAudio", value);
         }
+    }
 
-        // Inject data
-        document.getElementById("popularSongs").innerHTML = popularSongs.map(createMusicCard).join("");
-        document.getElementById("trendingArtists").innerHTML = trendingArtists.map(createArtistCard).join("");
-        document.getElementById("newReleases").innerHTML = newReleases.map(createMusicCard).join("");
-
-        // Basic player logic
-        const audio = document.getElementById("audio");
-        const playPause = document.getElementById("playPause");
-        const progressBar = document.getElementById("progressBar");
-        const currentTimeEl = document.getElementById("currentTime");
-        const remainingTimeEl = document.getElementById("remainingTime");
-        const volumeBar = document.getElementById("volumeBar");
-
-        playPause.addEventListener("click", () => {
-          if (audio.paused) {
-            audio.play();
-            playPause.src = "pauseButton.png";
-          } else {
-            audio.pause();
-            playPause.src = "playButton.png";
-          }
-        });
-
-        // Like button toggle
-        const likeBtn = document.querySelector(".icon-btn");
-
-        likeBtn.addEventListener("click", () => {
-          if (likeBtn.src.includes("heartBefore.png")) {
-            likeBtn.src = "heartAfter.png"; // liked state
-          } else {
-            likeBtn.src = "heartBefore.png"; // unliked state
-          }
-        });
-
-
-        audio.addEventListener("timeupdate", () => {
-          const progress = (audio.currentTime / audio.duration) * 100;
-          progressBar.value = progress || 0;
-          currentTimeEl.textContent = formatTime(audio.currentTime);
-          remainingTimeEl.textContent = "-" + formatTime(audio.duration - audio.currentTime);
-        });
-
-        progressBar.addEventListener("input", () => {
-          audio.currentTime = (progressBar.value / 100) * audio.duration;
-        });
-
-        volumeBar.addEventListener("input", () => {
-          audio.volume = volumeBar.value;
-        });
-
-        function formatTime(seconds) {
-          if (isNaN(seconds)) return "00:00";
-          const m = Math.floor(seconds / 60);
-          const s = Math.floor(seconds % 60);
-          return `${m < 10 ? "0" + m : m}:${s < 10 ? "0" + s : s}`;
+    private async Task ChangeVolume(ChangeEventArgs e)
+    {
+        if (double.TryParse(e.Value?.ToString(), out double value))
+        {
+            volume = value;
+            await JSRuntime.InvokeVoidAsync("changeVolume", value / 100);
         }
+    }
 
-        // Search bar
-        document.getElementById("searchInput").addEventListener("keyup", (e) => {
-          if (e.key === "Enter") {
-            alert(`Searching for: ${e.target.value}`);
-          }
-        });
+    private void ToggleShuffle()
+    {
+        // Implement shuffle logic
+    }
 
-    </script>
-</body>
-</html>
+    private void ToggleRepeat()
+    {
+        // Implement repeat logic
+    }
 
+    private void HandleSearch(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            // Implement search logic
+            Console.WriteLine($"Searching for: {searchQuery}");
+        }
+    }
+
+    // Models
+    public class Song
+    {
+        public string Title { get; set; } = "";
+        public string Artist { get; set; } = "";
+        public string Image { get; set; } = "";
+        public string AudioPath { get; set; } = "";
+    }
+
+    public class Artist
+    {
+        public string Name { get; set; } = "";
+        public string Image { get; set; } = "";
+    }
+}

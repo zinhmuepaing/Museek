@@ -1,0 +1,114 @@
+﻿@page "/playlistsongs/edit"
+@using Microsoft.EntityFrameworkCore
+@using Museek.Domain
+@inject IDbContextFactory<Museek.Data.MuseekContext> DbFactory
+@inject NavigationManager NavigationManager
+
+<PageTitle>Edit</PageTitle>
+
+<h1>Edit</h1>
+
+<h2>PlaylistSong</h2>
+<hr />
+@if (PlaylistSong is null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-4">
+            <EditForm method="post" Model="PlaylistSong" OnValidSubmit="UpdatePlaylistSong" FormName="edit" Enhance>
+                <DataAnnotationsValidator />
+                <ValidationSummary role="alert"/>
+                <input type="hidden" name="PlaylistSong.Id" value="@PlaylistSong.Id" />
+                <div class="mb-3">
+                    <label for="songid" class="form-label">SongId:</label>
+                    <InputNumber id="songid" @bind-Value="PlaylistSong.SongId" class="form-control" />
+                    <ValidationMessage For="() => PlaylistSong.SongId" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="playlistid" class="form-label">PlaylistId:</label>
+                    <InputNumber id="playlistid" @bind-Value="PlaylistSong.PlaylistId" class="form-control" />
+                    <ValidationMessage For="() => PlaylistSong.PlaylistId" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="datecreated" class="form-label">DateCreated:</label>
+                    <InputDate id="datecreated" @bind-Value="PlaylistSong.DateCreated" class="form-control" />
+                    <ValidationMessage For="() => PlaylistSong.DateCreated" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="dateupdated" class="form-label">DateUpdated:</label>
+                    <InputDate id="dateupdated" @bind-Value="PlaylistSong.DateUpdated" class="form-control" />
+                    <ValidationMessage For="() => PlaylistSong.DateUpdated" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="createdby" class="form-label">CreatedBy:</label>
+                    <InputText id="createdby" @bind-Value="PlaylistSong.CreatedBy" class="form-control" />
+                    <ValidationMessage For="() => PlaylistSong.CreatedBy" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="updatedby" class="form-label">UpdatedBy:</label>
+                    <InputText id="updatedby" @bind-Value="PlaylistSong.UpdatedBy" class="form-control" />
+                    <ValidationMessage For="() => PlaylistSong.UpdatedBy" class="text-danger" />
+                </div>
+                <button type="submit" class="btn btn-primary">Save</button>
+            </EditForm>
+        </div>
+    </div>
+}
+
+<div>
+    <a href="/playlistsongs">Back to List</a>
+</div>
+
+@code {
+    [SupplyParameterFromQuery]
+    private int Id { get; set; }
+
+    [SupplyParameterFromForm]
+    private PlaylistSong? PlaylistSong { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        using var context = DbFactory.CreateDbContext();
+        PlaylistSong ??= await context.PlaylistSong.FirstOrDefaultAsync(m => m.Id == Id);
+
+        if (PlaylistSong is null)
+        {
+            NavigationManager.NavigateTo("notfound");
+        }
+    }
+
+    // To protect from overposting attacks, enable the specific properties you want to bind to.
+    // For more information, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
+    private async Task UpdatePlaylistSong()
+    {
+        using var context = DbFactory.CreateDbContext();
+        context.Attach(PlaylistSong!).State = EntityState.Modified;
+
+        try
+        {
+            await context.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            if (!PlaylistSongExists(PlaylistSong!.Id))
+            {
+                NavigationManager.NavigateTo("notfound");
+            }
+            else
+            {
+                throw;
+            }
+        }
+
+        NavigationManager.NavigateTo("/playlistsongs");
+    }
+
+    private bool PlaylistSongExists(int id)
+    {
+        using var context = DbFactory.CreateDbContext();
+        return context.PlaylistSong.Any(e => e.Id == id);
+    }
+}

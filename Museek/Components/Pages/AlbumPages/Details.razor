@@ -1,0 +1,60 @@
+﻿@page "/albums/details"
+@using Microsoft.EntityFrameworkCore
+@using Museek.Domain
+@inject IDbContextFactory<Museek.Data.MuseekContext> DbFactory
+@inject NavigationManager NavigationManager
+
+<PageTitle>Details</PageTitle>
+
+<h1>Details</h1>
+
+<div>
+    <h2>Album</h2>
+    <hr />
+    @if (album is null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else {
+        <dl class="row">
+            <dt class="col-sm-2">Title</dt>
+            <dd class="col-sm-10">@album.Title</dd>
+            <dt class="col-sm-2">Released_Year</dt>
+            <dd class="col-sm-10">@album.Released_Year</dd>
+            <dt class="col-sm-2">Cover_Image</dt>
+            <dd class="col-sm-10">@album.Cover_Image</dd>
+            <dt class="col-sm-2">ArtistId</dt>
+            <dd class="col-sm-10">@album.ArtistId</dd>
+            <dt class="col-sm-2">DateCreated</dt>
+            <dd class="col-sm-10">@album.DateCreated</dd>
+            <dt class="col-sm-2">DateUpdated</dt>
+            <dd class="col-sm-10">@album.DateUpdated</dd>
+            <dt class="col-sm-2">CreatedBy</dt>
+            <dd class="col-sm-10">@album.CreatedBy</dd>
+            <dt class="col-sm-2">UpdatedBy</dt>
+            <dd class="col-sm-10">@album.UpdatedBy</dd>
+        </dl>
+        <div>
+            <a href="@($"/albums/edit?id={album.Id}")">Edit</a> |
+            <a href="@($"/albums")">Back to List</a>
+        </div>
+    }
+</div>
+
+@code {
+    private Album? album;
+
+    [SupplyParameterFromQuery]
+    private int Id { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        using var context = DbFactory.CreateDbContext();
+        album = await context.Album.FirstOrDefaultAsync(m => m.Id == Id);
+
+        if (album is null)
+        {
+            NavigationManager.NavigateTo("notfound");
+        }
+    }
+}

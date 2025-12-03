@@ -1,0 +1,42 @@
+﻿.library-container {
+    padding: 30px 40px;
+    background-color: #0f0f0f;
+    min-height: 80vh;
+}
+
+    .library-container h1 {
+        font-size: 32px;
+        margin-bottom: 10px;
+        color: #fff;
+    }
+
+    .library-container > p {
+        color: #aaa;
+        margin-bottom: 30px;
+    }
+
+.library-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+
+.library-section h2 {
+    font-size: 22px;
+    margin-bottom: 15px;
+    color: #fff;
+}
+
+.library-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 20px;
+}
+
+.empty-message {
+    color: #666;
+    font-style: italic;
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 40px 0;
+}

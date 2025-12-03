@@ -1,0 +1,56 @@
+﻿@page "/playlistsongs/details"
+@using Microsoft.EntityFrameworkCore
+@using Museek.Domain
+@inject IDbContextFactory<Museek.Data.MuseekContext> DbFactory
+@inject NavigationManager NavigationManager
+
+<PageTitle>Details</PageTitle>
+
+<h1>Details</h1>
+
+<div>
+    <h2>PlaylistSong</h2>
+    <hr />
+    @if (playlistsong is null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else {
+        <dl class="row">
+            <dt class="col-sm-2">SongId</dt>
+            <dd class="col-sm-10">@playlistsong.SongId</dd>
+            <dt class="col-sm-2">PlaylistId</dt>
+            <dd class="col-sm-10">@playlistsong.PlaylistId</dd>
+            <dt class="col-sm-2">DateCreated</dt>
+            <dd class="col-sm-10">@playlistsong.DateCreated</dd>
+            <dt class="col-sm-2">DateUpdated</dt>
+            <dd class="col-sm-10">@playlistsong.DateUpdated</dd>
+            <dt class="col-sm-2">CreatedBy</dt>
+            <dd class="col-sm-10">@playlistsong.CreatedBy</dd>
+            <dt class="col-sm-2">UpdatedBy</dt>
+            <dd class="col-sm-10">@playlistsong.UpdatedBy</dd>
+        </dl>
+        <div>
+            <a href="@($"/playlistsongs/edit?id={playlistsong.Id}")">Edit</a> |
+            <a href="@($"/playlistsongs")">Back to List</a>
+        </div>
+    }
+</div>
+
+@code {
+    private PlaylistSong? playlistsong;
+
+    [SupplyParameterFromQuery]
+    private int Id { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        using var context = DbFactory.CreateDbContext();
+        playlistsong = await context.PlaylistSong.FirstOrDefaultAsync(m => m.Id == Id);
+
+        if (playlistsong is null)
+        {
+            NavigationManager.NavigateTo("notfound");
+        }
+    }
+}

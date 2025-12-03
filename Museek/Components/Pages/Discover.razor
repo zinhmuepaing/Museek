@@ -1,0 +1,46 @@
+﻿@page "/discover"
+
+<PageTitle>Museek | Discover</PageTitle>
+
+<div class="discover-container">
+    <h1>Discover Music</h1>
+    <p>Explore new artists, genres, and trending music</p>
+
+    <div class="discover-sections">
+        <section class="discover-section">
+            <h2>Browse by Genre</h2>
+            <div class="genre-grid">
+                @foreach (var genre in genres)
+                {
+                    <div class="genre-card">
+                        <h3>@genre</h3>
+                    </div>
+                }
+            </div>
+        </section>
+
+        <section class="discover-section">
+            <h2>Top Charts</h2>
+            <div class="charts-grid">
+                <!-- Add chart items here -->
+                <p class="empty-message">Charts loading...</p>
+            </div>
+        </section>
+
+        <section class="discover-section">
+            <h2>Recommended For You</h2>
+            <div class="recommendations-grid">
+                <!-- Add recommendations here -->
+                <p class="empty-message">Recommendations loading...</p>
+            </div>
+        </section>
+    </div>
+</div>
+
+@code {
+    private List<string> genres = new()
+    {
+        "Pop", "Rock", "Hip Hop", "Electronic",
+        "Jazz", "Classical", "R&B", "Country"
+    };
+}

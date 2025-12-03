@@ -1,0 +1,62 @@
+﻿@page "/songs/details"
+@using Microsoft.EntityFrameworkCore
+@using Museek.Domain
+@inject IDbContextFactory<Museek.Data.MuseekContext> DbFactory
+@inject NavigationManager NavigationManager
+
+<PageTitle>Details</PageTitle>
+
+<h1>Details</h1>
+
+<div>
+    <h2>Song</h2>
+    <hr />
+    @if (song is null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else {
+        <dl class="row">
+            <dt class="col-sm-2">Title</dt>
+            <dd class="col-sm-10">@song.Title</dd>
+            <dt class="col-sm-2">Duration</dt>
+            <dd class="col-sm-10">@song.Duration</dd>
+            <dt class="col-sm-2">Release_Date</dt>
+            <dd class="col-sm-10">@song.Release_Date</dd>
+            <dt class="col-sm-2">Cover_Art</dt>
+            <dd class="col-sm-10">@song.Cover_Art</dd>
+            <dt class="col-sm-2">AlbumId</dt>
+            <dd class="col-sm-10">@song.AlbumId</dd>
+            <dt class="col-sm-2">DateCreated</dt>
+            <dd class="col-sm-10">@song.DateCreated</dd>
+            <dt class="col-sm-2">DateUpdated</dt>
+            <dd class="col-sm-10">@song.DateUpdated</dd>
+            <dt class="col-sm-2">CreatedBy</dt>
+            <dd class="col-sm-10">@song.CreatedBy</dd>
+            <dt class="col-sm-2">UpdatedBy</dt>
+            <dd class="col-sm-10">@song.UpdatedBy</dd>
+        </dl>
+        <div>
+            <a href="@($"/songs/edit?id={song.Id}")">Edit</a> |
+            <a href="@($"/songs")">Back to List</a>
+        </div>
+    }
+</div>
+
+@code {
+    private Song? song;
+
+    [SupplyParameterFromQuery]
+    private int Id { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        using var context = DbFactory.CreateDbContext();
+        song = await context.Song.FirstOrDefaultAsync(m => m.Id == Id);
+
+        if (song is null)
+        {
+            NavigationManager.NavigateTo("notfound");
+        }
+    }
+}

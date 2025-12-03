@@ -1,0 +1,43 @@
+﻿@page "/playlists"
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.QuickGrid
+@using Museek.Domain
+@using Museek.Data
+@implements IAsyncDisposable
+@inject IDbContextFactory<Museek.Data.MuseekContext> DbFactory
+
+<PageTitle>Index</PageTitle>
+
+<h1>Index</h1>
+
+<p>
+    <a href="playlists/create">Create New</a>
+</p>
+
+<QuickGrid Class="table" Items="context.Playlist">
+    <PropertyColumn Property="playlist => playlist.Name" />
+    <PropertyColumn Property="playlist => playlist.Description" />
+    <PropertyColumn Property="playlist => playlist.AdminId" />
+    <PropertyColumn Property="playlist => playlist.UserId" />
+    <PropertyColumn Property="playlist => playlist.DateCreated" />
+    <PropertyColumn Property="playlist => playlist.DateUpdated" />
+    <PropertyColumn Property="playlist => playlist.CreatedBy" />
+    <PropertyColumn Property="playlist => playlist.UpdatedBy" />
+
+    <TemplateColumn Context="playlist">
+        <a href="@($"playlists/edit?id={playlist.Id}")">Edit</a> |
+        <a href="@($"playlists/details?id={playlist.Id}")">Details</a> |
+        <a href="@($"playlists/delete?id={playlist.Id}")">Delete</a>
+    </TemplateColumn>
+</QuickGrid>
+
+@code {
+    private MuseekContext context = default!;
+
+    protected override void OnInitialized()
+    {
+        context = DbFactory.CreateDbContext();
+    }
+
+    public async ValueTask DisposeAsync() => await context.DisposeAsync();
+}
