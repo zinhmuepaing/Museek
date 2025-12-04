@@ -1,19 +1,19 @@
-﻿.library-container {
+﻿﻿.library-container {
     padding: 30px 40px;
     background-color: #0f0f0f;
     min-height: 80vh;
 }
 
-    .library-container h1 {
-        font-size: 32px;
-        margin-bottom: 10px;
-        color: #fff;
-    }
+.library-container h1 {
+    font-size: 32px;
+    margin-bottom: 10px;
+    color: #fff;
+}
 
-    .library-container > p {
-        color: #aaa;
-        margin-bottom: 30px;
-    }
+.library-container > p {
+    color: #aaa;
+    margin-bottom: 30px;
+}
 
 .library-sections {
     display: flex;

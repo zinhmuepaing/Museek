@@ -1,4 +1,4 @@
-﻿@page "/"
+﻿@page "/home"
 @inject IJSRuntime JSRuntime
 
 <PageTitle>Museek | Home</PageTitle>
@@ -109,9 +109,8 @@
             </div>
 
             <!-- Hidden audio element -->
-            <audio id="audioPlayer" preload="metadata">
-                <source src="@currentSong.AudioPath" type="audio/mpeg" />
-            </audio>
+            <audio id="audioPlayer" src="@currentSong.AudioPath"></audio>
+
         </section>
     </aside>
 </div>
@@ -128,32 +127,35 @@
     // Sample data
     private List<Song> popularSongs = new()
     {
-        new Song { Title = "Midnight Echo", Artist = "Luna Grey", Image = "images/song1.png", AudioPath = "audio/song1.mp3" },
-        new Song { Title = "Electric Sky", Artist = "Nova Beats", Image = "images/song2.png", AudioPath = "audio/song2.mp3" },
-        new Song { Title = "Gravity", Artist = "Atlas Sound", Image = "images/song3.png", AudioPath = "audio/song3.mp3" }
+        new Song { Title="About You", Artist="The 1975", Image="images/AboutYou.png", AudioPath="audios/about_you.mp3" },
+
+        new Song { Title = "We Can't Be Friends", Artist = "Ariana Grande", Image = "images/ariana.png", AudioPath = "audios/Ariana Grande - we can't be friends (Lyrics).mp3" },
+        new Song { Title = "Baby", Artist = "Justin Bieber", Image = "images/baby.png", AudioPath = "audios/Justin Bieber - Baby ft. Ludacris.mp3" },
+        //new Song { Title = "Blue", Artist = "Yung Kai", Image = "images/blue.png", AudioPath = "audios/blue.mp3" }
     };
 
     private List<Artist> trendingArtists = new()
     {
-        new Artist { Name = "Aria Stone", Image = "images/artist1.png" },
-        new Artist { Name = "Eon Wave", Image = "images/artist2.png" },
-        new Artist { Name = "Sora", Image = "images/artist3.png" }
+        new Artist { Name = "The Weekend", Image = "images/The Weekend.png" },
+        new Artist { Name = "Lana Del Rey", Image = "images/Lana Del Rey.png" },
+        new Artist { Name = "Billie Eilish", Image = "images/Billie Eilish.png" }
     };
 
     private List<Song> newReleases = new()
     {
-        new Song { Title = "Dusk Till Dawn", Artist = "Aether", Image = "images/release1.png", AudioPath = "audio/release1.mp3" },
-        new Song { Title = "Wildfire", Artist = "Vexx", Image = "images/release2.png", AudioPath = "audio/release2.mp3" },
-        new Song { Title = "Lost Frequencies", Artist = "EchoLine", Image = "images/release3.png", AudioPath = "audio/release3.mp3" }
+        new Song { Title = "Dusk Till Dawn", Artist = "ZAYN", Image = "images/Dusk Till Dawn.png", AudioPath = "audios/Dusk Till Dawn.mp3" },
+        new Song { Title = "Robbers", Artist = "The 1975", Image = "images/Robbers.png", AudioPath = "audios/Robbers.mp3" },
+        new Song { Title = "Give Me Your Forever", Artist = "Zack Tabudlo", Image = "images/GMYF.png", AudioPath = "audios/Give Me Your Forever.mp3" }
     };
 
     private Song currentSong = new Song
     {
-        Title = "Rhythmic Echoes",
-        Artist = "Alex Harmon",
-        Image = "images/default-cover.png",
-        AudioPath = "audio/default.mp3"
+        Title = "",
+        Artist = "",
+        Image = "",
+        AudioPath = ""   // must be empty!
     };
+
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -178,8 +180,27 @@
     {
         currentSong = song;
         isPlaying = true;
-        await JSRuntime.InvokeVoidAsync("playSong", song.AudioPath);
+
+        // trigger render
+        StateHasChanged();
+
+        // wait for DOM to update
+        await Task.Delay(50);
+
+        // reattach JS references
+        await JSRuntime.InvokeVoidAsync("initializeAudioPlayer");
+
+        // load new audio
+        await JSRuntime.InvokeVoidAsync("loadAudio", song.AudioPath);
+
+        // play it
+        await JSRuntime.InvokeVoidAsync("togglePlayPause");
     }
+
+
+
+
+
 
     private async Task PreviousSong()
     {
@@ -243,3 +264,5 @@
         public string Image { get; set; } = "";
     }
 }
+
+

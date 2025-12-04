@@ -1,0 +1,113 @@
+﻿.upload-container {
+    padding: 40px 60px;
+    font-family: "Poppins", sans-serif;
+    color: #222;
+}
+
+/* Header */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #FFFFFF
+}
+
+    .header h2 {
+        font-size: 32px;
+        font-weight: 600;
+    }
+
+/* Search + Upload buttons */
+.actions {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.search-box {
+    display: flex;
+    align-items: center;
+    border: 1px solid #ddd;
+    padding: 8px 12px;
+    border-radius: 30px;
+    background: #fafafa;
+}
+
+    .search-box input {
+        border: none;
+        background: transparent;
+        outline: none;
+        margin-left: 8px;
+    }
+
+.search-icon {
+    width: 18px;
+    height: 18px;
+    opacity: 0.6;
+}
+
+.upload-btn {
+    background: #f8c8ff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+    .upload-btn:hover {
+        background: #f3b6ff;
+    }
+
+/* Form Card */
+.form-card {
+    margin-top: 40px;
+    background: #fff;
+    padding: 30px 25px;
+    border-radius: 16px;
+    box-shadow: 0px 4px 18px rgba(0,0,0,0.05);
+    width: 100%;
+    max-width: 650px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 18px;
+}
+
+    .form-group label {
+        font-size: 14px;
+        font-weight: 600;
+        color: #444;
+        margin-bottom: 6px;
+    }
+
+    .form-group input[type="text"],
+    .form-group input[type="date"],
+    .form-group input[type="file"] {
+        padding: 10px 14px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        font-size: 14px;
+        outline: none;
+    }
+
+.save-btn {
+    margin-top: 20px;
+    width: 100%;
+    padding: 12px;
+    background: black;
+    color: white;
+    font-size: 15px;
+    font-weight: 600;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+    .save-btn:hover {
+        opacity: 0.85;
+    }

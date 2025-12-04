@@ -1,0 +1,124 @@
+﻿@page "/upload-song"
+
+@* @inject IArtistService ArtistService *@
+@* @inject IAlbumService AlbumService *@
+
+@using Museek.Domain
+
+<PageTitle>Upload Song</PageTitle>
+
+<div class="upload-container">
+
+    <!-- Header -->
+    <div class="header">
+        <h2>Upload Song</h2>
+
+        <div class="actions">
+            <div class="search-box">
+                <img src="images/search.png" class="search-icon" />
+                <input type="text" placeholder="Search library" />
+            </div>
+
+            <button class="upload-btn">
+                + Upload music
+            </button>
+        </div>
+    </div>
+
+    <!-- Form -->
+    <div class="form-card">
+
+        <div class="form-group">
+            <label>Song Title</label>
+            <input type="text" @bind="song.Title" />
+        </div>
+
+        <div class="form-group">
+            <label>Artist</label>
+            <select @bind="song.ArtistId">
+                <option value="">Select Artist</option>
+                @foreach (var a in artists)
+                {
+                    <option value="@a.Id">@a.Name</option>
+                }
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Album</label>
+            <select @bind="song.AlbumId">
+                <option value="">Select Album</option>
+                @foreach (var al in albums)
+                {
+                    <option value="@al.Id">@al.Name</option>
+                }
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Cover Image</label>
+            <InputFile OnChange="OnCoverSelected" />
+        </div>
+
+        <div class="form-group">
+            <label>Audio File</label>
+            <InputFile OnChange="OnAudioSelected" />
+        </div>
+
+        <button class="save-btn" @onclick="SaveSong">
+            Save Song
+        </button>
+    </div>
+
+</div>
+
+@code {
+    private Song song = new();
+    private List<Artist> artists = new();
+    private List<Album> albums = new();
+
+    private IBrowserFile? coverFile;
+    private IBrowserFile? audioFile;
+
+    protected override Task OnInitializedAsync()
+    {
+        // TEMP data (replace after services exist)
+        artists = new()
+        {
+            new Artist { Id = 1, Name = "The 1975" },
+            new Artist { Id = 2, Name = "Ariana Grande" },
+            new Artist { Id = 3, Name = "Billie Eilish" }
+        };
+
+        albums = new()
+        {
+            new Album { Id = 1, Name = "Being Funny In A Foreign Language" },
+            new Album { Id = 2, Name = "Sweetener" },
+            new Album { Id = 3, Name = "Happier Than Ever" }
+        };
+
+        return Task.CompletedTask;
+    }
+
+    private void OnCoverSelected(InputFileChangeEventArgs e)
+    {
+        coverFile = e.File;
+    }
+
+    private void OnAudioSelected(InputFileChangeEventArgs e)
+    {
+        audioFile = e.File;
+    }
+
+    private void SaveSong()
+    {
+        Console.WriteLine("Saving song...");
+        Console.WriteLine($"Title: {song.Title}");
+        Console.WriteLine($"ArtistId: {song.ArtistId}");
+        Console.WriteLine($"AlbumId: {song.AlbumId}");
+    }
+
+    // Temporary models
+    public class Artist { public int Id { get; set; } public string? Name { get; set; } }
+    public class Album { public int Id { get; set; } public string? Name { get; set; } }
+}

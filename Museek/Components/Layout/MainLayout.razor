@@ -1,26 +1,12 @@
 ﻿@inherits LayoutComponentBase
+@using Museek.Components
+
 
 <div class="page">
-    <!-- Navigation Bar -->
-    <header class="navbar">
-        <div class="logo">
-            <img src="images/MuseekLogo.png" alt="Museek Logo" class="logo-img" />
-            <h1>Museek</h1>
-        </div>
-        <nav class="nav-links">
-            <NavLink href="/" Match="NavLinkMatch.All">
-                <img src="images/homeIcon.png" class="icon" /> Home
-            </NavLink>
-            <NavLink href="/library">
-                <img src="images/album.png" class="icon" /> Library
-            </NavLink>
-            <NavLink href="/discover">
-                <img src="images/search.png" class="icon" /> Discover
-            </NavLink>
-        </nav>
-        <div class="user-profile">
-            <img src="images/userIcon.png" alt="User" class="profile-icon" />
-        </div>
+
+    <!-- Top Navbar -->
+    <header>
+        <NavMenu />
     </header>
 
     <!-- Main Content -->
@@ -30,7 +16,7 @@
 
     <!-- Footer -->
     <footer class="footer">
-        <p>&copy; 2025 Museek Pte Ltd. All rights reserved.</p>
+        <p>© 2025 Museek Pte Ltd. All rights reserved.</p>
         <div class="footer-links">
             <a href="#">FAQ</a>
             <a href="#">Contact</a>

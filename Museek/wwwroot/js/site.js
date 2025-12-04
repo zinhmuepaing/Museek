@@ -1,85 +1,102 @@
-﻿// Audio Player functionality
-let audio;
+﻿let audioPlayer;
+let audioSource;
+let progressBar;
+let currentTimeLabel;
+let remainingTimeLabel;
+let updateInterval;
 
 window.initializeAudioPlayer = () => {
-    audio = document.getElementById("audioPlayer");
+    audioPlayer = document.getElementById("audioPlayer");
+    audioSource = document.getElementById("audioSource");
+    progressBar = document.getElementById("progressBar");
+    currentTimeLabel = document.getElementById("currentTime");
+    remainingTimeLabel = document.getElementById("remainingTime");
 
-    if (!audio) return;
+    if (!audioPlayer) return;
 
-    // Time update event
-    audio.addEventListener("timeupdate", () => {
-        if (audio.duration) {
-            const progress = (audio.currentTime / audio.duration) * 100;
-            const progressBar = document.getElementById("progressBar");
-            if (progressBar) {
-                progressBar.value = progress;
-            }
-
-            // Update time displays
-            updateTimeDisplay(audio.currentTime, audio.duration);
-        }
+    // Update UI when audio metadata is loaded
+    audioPlayer.addEventListener("loadedmetadata", () => {
+        updateTimeDisplay();
     });
 
-    // When song ends
-    audio.addEventListener("ended", () => {
-        // You can trigger next song here
-        console.log("Song ended");
+    // Live update on time change
+    audioPlayer.addEventListener("timeupdate", () => {
+        updateProgress();
+        updateTimeDisplay();
     });
 };
 
-window.togglePlayPause = () => {
-    if (!audio) return;
+window.loadAudio = function (audioPath) {
+    const audio = document.getElementById("audioPlayer");
+    audio.src = audioPath;
+    audio.load();
+};
 
-    if (audio.paused) {
-        audio.play();
+
+
+
+// Play or pause
+window.togglePlayPause = () => {
+    if (!audioPlayer) return;
+
+    if (audioPlayer.paused) {
+        audioPlayer.play();
     } else {
-        audio.pause();
+        audioPlayer.pause();
     }
 };
 
-window.playSong = (audioPath) => {
-    if (!audio) return;
+// Seek
+window.seekAudio = (value) => {
+    if (!audioPlayer || !audioPlayer.duration) return;
 
-    audio.src = audioPath;
-    audio.load();
-    audio.play();
+    let pos = (value / 100) * audioPlayer.duration;
+    audioPlayer.currentTime = pos;
+};
+
+// Volume
+window.changeVolume = (value) => {
+    if (!audioPlayer) return;
+
+    audioPlayer.volume = value;
+};
+
+// Update progress bar
+function updateProgress() {
+    if (!audioPlayer || !audioPlayer.duration) return;
+
+    let progress = (audioPlayer.currentTime / audioPlayer.duration) * 100;
+    progressBar.value = progress;
+}
+
+// Update time labels
+function updateTimeDisplay() {
+    if (!audioPlayer) return;
+
+    let current = audioPlayer.currentTime;
+    let total = audioPlayer.duration;
+
+    currentTimeLabel.textContent = formatTime(current);
+
+    if (!isNaN(total)) {
+        remainingTimeLabel.textContent = "-" + formatTime(total - current);
+    }
+}
+
+// Format seconds into mm:ss
+function formatTime(seconds) {
+    if (isNaN(seconds)) return "00:00";
+
+    let m = Math.floor(seconds / 60);
+    let s = Math.floor(seconds % 60);
+
+    return (m < 10 ? "0" + m : m) + ":" + (s < 10 ? "0" + s : s);
+}
+
+window.nextSong = () => {
+    console.log("Next song not implemented yet");
 };
 
 window.previousSong = () => {
-    // Implement previous song logic
-    console.log("Previous song");
+    console.log("Previous song not implemented yet");
 };
-
-window.nextSong = () => {
-    // Implement next song logic
-    console.log("Next song");
-};
-
-window.seekAudio = (value) => {
-    if (!audio || !audio.duration) return;
-
-    audio.currentTime = (value / 100) * audio.duration;
-};
-
-window.changeVolume = (value) => {
-    if (!audio) return;
-
-    audio.volume = value;
-};
-
-function updateTimeDisplay(currentTime, duration) {
-    const currentTimeEl = document.getElementById("currentTime");
-    const remainingTimeEl = document.getElementById("remainingTime");
-
-    if (currentTimeEl && remainingTimeEl) {
-        currentTimeEl.textContent = formatTime(currentTime);
-        remainingTimeEl.textContent = "-" + formatTime(duration - currentTime);
-    }
-}
-
-function formatTime(seconds) {
-    if (isNaN(seconds)) return "00:00";
-    const m = Math.floor(seconds / 60);
-    const s = Math.floor(seconds % 60);
-    return `${m < 10 ? "0" + m : m}:${s < 10 ? "0" + s : s}`;
-}

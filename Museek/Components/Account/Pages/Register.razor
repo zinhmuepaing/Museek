@@ -1,4 +1,4 @@
-﻿@page "/Account/Register"
+﻿@page "/"
 
 @using System.ComponentModel.DataAnnotations
 @using System.Text
@@ -111,6 +111,8 @@
         //add the user id as claim when user registers
         await UserManager.AddClaimAsync(user, new System.Security.Claims.Claim("userId",
         user.Id));
+        await UserManager.AddClaimAsync(user, new System.Security.Claims.Claim("FirstName", user.FirstName));
+
 
 
         Logger.LogInformation("User created a new account with password.");
@@ -119,20 +121,16 @@
         var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
         code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
         var callbackUrl = NavigationManager.GetUriWithQueryParameters(
-            NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri,
+            NavigationManager.ToAbsoluteUri("/Account/Login").AbsoluteUri,
             new Dictionary<string, object?> { ["userId"] = userId, ["code"] = code, ["returnUrl"] = ReturnUrl });
 
         await EmailSender.SendConfirmationLinkAsync(user, Input.Email, HtmlEncoder.Default.Encode(callbackUrl));
 
-        if (UserManager.Options.SignIn.RequireConfirmedAccount)
-        {
-            RedirectManager.RedirectTo(
-                "Account/RegisterConfirmation",
-                new() { ["email"] = Input.Email, ["returnUrl"] = ReturnUrl });
-        }
 
-        await SignInManager.SignInAsync(user, isPersistent: false);
-        RedirectManager.RedirectTo(ReturnUrl);
+
+
+        RedirectManager.RedirectTo("/Account/Login");
+        return;
     }
 
     private MuseekUser CreateUser()
