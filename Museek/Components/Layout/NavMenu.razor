@@ -1,4 +1,6 @@
-﻿@inject AuthenticationStateProvider AuthenticationStateProvider
+﻿@implements IDisposable
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 <div class="nav-wrapper">
 
@@ -8,56 +10,79 @@
         <h1 class="logo-text">Museek</h1>
     </div>
 
-    <!-- Center: Navigation Links -->
-    <div class="nav-center">
-        <NavLink href="/" Match="NavLinkMatch.All">
-            <img src="images/homeIcon.png" class="icon" /> Home
-        </NavLink>
+    <AuthorizeView>
+        <Authorized>
+            <!-- Center: Navigation Links (logged in) -->
+            <div class="nav-center">
+                <NavLink href="/home" Match="NavLinkMatch.All">
+                    <img src="images/homeIcon.png" class="icon" /> Home
+                </NavLink>
 
-        <NavLink href="/library">
-            <img src="images/album.png" class="icon" /> Library
-        </NavLink>
+                <NavLink href="/library">
+                    <img src="images/album.png" class="icon" /> Library
+                </NavLink>
 
-        <NavLink href="/discover">
-            <img src="images/search.png" class="icon" /> Discover
-        </NavLink>
+                <NavLink href="/discover">
+                    <img src="images/search.png" class="icon" /> Discover
+                </NavLink>
 
-        <AuthorizeView>
-            <Authorized>
-                <NavLink href="/upload-song">
+                <NavLink href="/songs">
                     <img src="images/upload.png" class="icon" /> Upload Music
                 </NavLink>
-            </Authorized>
-        </AuthorizeView>
+            </div>
 
-
-    </div>
-
-    <!-- Right: User profile -->
-    <div class="nav-right">
-        <AuthorizeView>
-            <Authorized>
+            <!-- Right: User + Logout -->
+            <div class="nav-right">
                 <div class="user-area">
-                    <img src="images/userIcon.png" class="profile-icon" />
+                    <img src="images/user.png" class="profile-icon" />
                     <span>@firstName</span>
                 </div>
-            </Authorized>
 
-            <NotAuthorized>
-                <NavLink href="Account/Login">
-                    <img src="images/userIcon.png" class="profile-icon" />
+                <form action="Account/Logout" method="post" class="logout-form">
+                    <AntiforgeryToken />
+                    <input type="hidden" name="ReturnUrl" value="" />
+
+                    <button type="submit" class="logout-btn">
+                        Logout
+                    </button>
+                </form>
+            </div>
+        </Authorized>
+
+        <NotAuthorized>
+            <!-- Center: Navigation Links (not logged in) -->
+            <div class="nav-center">
+                <NavLink href="/home" Match="NavLinkMatch.All">
+                    <img src="images/homeIcon.png" class="icon" /> Home
                 </NavLink>
-            </NotAuthorized>
-        </AuthorizeView>
-    </div>
-</div>
 
+                <NavLink href="/discover">
+                    <img src="images/search.png" class="icon" /> Discover
+                </NavLink>
+            </div>
+
+            <!-- Right: Login icon -->
+            <div class="nav-right">
+                <NavLink href="Account/Login">
+                    <img src="images/user.png" class="profile-icon" />
+                </NavLink>
+            </div>
+        </NotAuthorized>
+    </AuthorizeView>
+
+</div>
 
 @code {
     private string? firstName;
+    private string? currentUrl;
 
     protected override async Task OnInitializedAsync()
     {
+        // Track current URL like in the sample project
+        currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        NavigationManager.LocationChanged += OnLocationChanged;
+
+        // Get logged-in user's name
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         var user = authState.User;
 
@@ -66,5 +91,16 @@
             firstName = user.Claims.FirstOrDefault(c => c.Type == "FirstName")?.Value
                         ?? user.Identity.Name;
         }
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        currentUrl = NavigationManager.ToBaseRelativePath(e.Location);
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= OnLocationChanged;
     }
 }

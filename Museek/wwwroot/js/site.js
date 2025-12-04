@@ -7,19 +7,13 @@ let updateInterval;
 
 window.initializeAudioPlayer = () => {
     audioPlayer = document.getElementById("audioPlayer");
-    audioSource = document.getElementById("audioSource");
     progressBar = document.getElementById("progressBar");
     currentTimeLabel = document.getElementById("currentTime");
     remainingTimeLabel = document.getElementById("remainingTime");
 
     if (!audioPlayer) return;
 
-    // Update UI when audio metadata is loaded
-    audioPlayer.addEventListener("loadedmetadata", () => {
-        updateTimeDisplay();
-    });
-
-    // Live update on time change
+    audioPlayer.addEventListener("loadedmetadata", updateTimeDisplay);
     audioPlayer.addEventListener("timeupdate", () => {
         updateProgress();
         updateTimeDisplay();
@@ -27,10 +21,23 @@ window.initializeAudioPlayer = () => {
 };
 
 window.loadAudio = function (audioPath) {
+    console.log("Loading audio:", audioPath);
     const audio = document.getElementById("audioPlayer");
+    if (!audio) {
+        console.error("Audio element not found!");
+        return;
+    }
+    console.log("Audio element found, setting src to:", audioPath);
     audio.src = audioPath;
     audio.load();
+
+    audio.addEventListener('error', function (e) {
+        console.error("Audio loading error:", e);
+        console.error("Failed to load:", audio.src);
+    });
 };
+
+
 
 
 

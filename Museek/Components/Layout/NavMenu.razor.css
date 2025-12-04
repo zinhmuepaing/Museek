@@ -23,6 +23,25 @@
     color: #fff;
     font-weight: 600;
 }
+.logout-form {
+    margin-left: 12px;
+}
+
+.logout-btn {
+    background: transparent;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 5px 10px;
+}
+
+.logout-btn:hover {
+    color: #ff6b6b;
+
+}
+
+
 
 /* CENTER */
 .nav-center {

@@ -3,6 +3,8 @@
 @* @inject IArtistService ArtistService *@
 @* @inject IAlbumService AlbumService *@
 
+@attribute [Authorize(Roles = "Administrator, User")]
+
 @using Museek.Domain
 
 <PageTitle>Upload Song</PageTitle>

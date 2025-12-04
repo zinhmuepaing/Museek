@@ -1,89 +1,134 @@
 ﻿@page "/songs/create"
-@using Microsoft.EntityFrameworkCore
+
+
 @using Museek.Domain
+@using Microsoft.EntityFrameworkCore
 @inject IDbContextFactory<Museek.Data.MuseekContext> DbFactory
 @inject NavigationManager NavigationManager
 
-<PageTitle>Create</PageTitle>
+@attribute [Authorize(Roles = "Administrator, User")]
 
-<h1>Create</h1>
+<PageTitle>Upload Song</PageTitle>
 
-<h2>Song</h2>
-<hr />
-<div class="row">
-    <div class="col-md-4">
-        <EditForm method="post" Model="Song" OnValidSubmit="AddSong" FormName="create" Enhance>
+<div class="upload-container">
+
+    <!-- Header -->
+    <div class="header">
+        <h2>Upload Song</h2>
+
+        <div class="actions">
+            <div class="search-box">
+                <img src="images/search.png" class="search-icon" />
+                <input type="text" placeholder="Search library" />
+            </div>
+
+            <button class="upload-btn" type="button">
+                + Upload music
+            </button>
+        </div>
+    </div>
+
+    <!-- Form -->
+    <div class="form-card">
+
+        <EditForm Model="song" OnValidSubmit="SaveSong">
             <DataAnnotationsValidator />
-            <ValidationSummary class="text-danger" role="alert"/>
-            <div class="mb-3">
-                <label for="title" class="form-label">Title:</label> 
-                <InputText id="title" @bind-Value="Song.Title" class="form-control" /> 
-                <ValidationMessage For="() => Song.Title" class="text-danger" /> 
-            </div>        
-            <div class="mb-3">
-                <label for="audio_file" class="form-label">Audio_File:</label> 
-                <InputText id="audio_file" @bind-Value="Song.Audio_File" class="form-control" /> 
-                <ValidationMessage For="() => Song.Audio_File" class="text-danger" /> 
-            </div>        
-            <div class="mb-3">
-                <label for="duration" class="form-label">Duration:</label> 
-                <InputNumber id="duration" @bind-Value="Song.Duration" class="form-control" /> 
-                <ValidationMessage For="() => Song.Duration" class="text-danger" /> 
-            </div>        
-            <div class="mb-3">
-                <label for="cover_art" class="form-label">Cover_Art:</label> 
-                <InputText id="cover_art" @bind-Value="Song.Cover_Art" class="form-control" /> 
-                <ValidationMessage For="() => Song.Cover_Art" class="text-danger" /> 
-            </div>        
-            <div class="mb-3">
-                <label for="albumid" class="form-label">AlbumId:</label> 
-                <InputNumber id="albumid" @bind-Value="Song.AlbumId" class="form-control" /> 
-                <ValidationMessage For="() => Song.AlbumId" class="text-danger" /> 
-            </div>        
-            <div class="mb-3">
-                <label for="artistid" class="form-label">ArtistId:</label> 
-                <InputNumber id="artistid" @bind-Value="Song.ArtistId" class="form-control" /> 
-                <ValidationMessage For="() => Song.ArtistId" class="text-danger" /> 
-            </div>        
-            <div class="mb-3">
-                <label for="datecreated" class="form-label">DateCreated:</label> 
-                <InputDate id="datecreated" @bind-Value="Song.DateCreated" class="form-control" /> 
-                <ValidationMessage For="() => Song.DateCreated" class="text-danger" /> 
-            </div>        
-            <div class="mb-3">
-                <label for="dateupdated" class="form-label">DateUpdated:</label> 
-                <InputDate id="dateupdated" @bind-Value="Song.DateUpdated" class="form-control" /> 
-                <ValidationMessage For="() => Song.DateUpdated" class="text-danger" /> 
-            </div>        
-            <div class="mb-3">
-                <label for="createdby" class="form-label">CreatedBy:</label> 
-                <InputText id="createdby" @bind-Value="Song.CreatedBy" class="form-control" /> 
-                <ValidationMessage For="() => Song.CreatedBy" class="text-danger" /> 
-            </div>        
-            <div class="mb-3">
-                <label for="updatedby" class="form-label">UpdatedBy:</label> 
-                <InputText id="updatedby" @bind-Value="Song.UpdatedBy" class="form-control" /> 
-                <ValidationMessage For="() => Song.UpdatedBy" class="text-danger" /> 
-            </div>        
-            <button type="submit" class="btn btn-primary">Create</button>
+            <ValidationSummary class="text-danger" />
+
+            <div class="form-group">
+                <label>Song Title</label>
+                <InputText @bind-Value="song.Title" />
+                <ValidationMessage For="() => song.Title" class="text-danger" />
+            </div>
+
+            <div class="form-group">
+                <label>Artist</label>
+                <InputSelect @bind-Value="song.ArtistId">
+                    <option value="">Select Artist</option>
+                    @foreach (var a in artists)
+                    {
+                        <option value="@a.Id">@a.Name</option>
+                    }
+                </InputSelect>
+                <ValidationMessage For="() => song.ArtistId" class="text-danger" />
+            </div>
+
+            <div class="form-group">
+                <label>Album</label>
+                <InputSelect @bind-Value="song.AlbumId">
+                    <option value="">Select Album</option>
+                    @foreach (var al in albums)
+                    {
+                        <option value="@al.Id">@al.Title</option>
+                    }
+                </InputSelect>
+                <ValidationMessage For="() => song.AlbumId" class="text-danger" />
+            </div>
+
+            <div class="form-group">
+                <label>Cover Image</label>
+                <InputFile OnChange="OnCoverSelected" />
+            </div>
+
+            <div class="form-group">
+                <label>Audio File</label>
+                <InputFile OnChange="OnAudioSelected" />
+            </div>
+
+            <button class="save-btn" type="submit">
+                Save Song
+            </button>
+
         </EditForm>
     </div>
-</div>
 
-<div>
-    <a href="/songs">Back to List</a>
 </div>
 
 @code {
-    [SupplyParameterFromForm]
-    private Song Song { get; set; } = new();
+    private Song song = new();
+    private List<Artist> artists = new();
+    private List<Album> albums = new();
 
-    // To protect from overposting attacks, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
-    private async Task AddSong()
+    private IBrowserFile? coverFile;
+    private IBrowserFile? audioFile;
+
+    protected override async Task OnInitializedAsync()
     {
         using var context = DbFactory.CreateDbContext();
-        context.Song.Add(Song);
+
+        artists = await context.Artist
+            .OrderBy(a => a.Name)
+            .ToListAsync();
+
+        albums = await context.Album
+            .OrderBy(a => a.Title)
+            .ToListAsync();
+    }
+
+    private void OnCoverSelected(InputFileChangeEventArgs e)
+    {
+        coverFile = e.File;
+        // simplest case, just store the file name as path in DB
+        song.Cover_Art = $"images/{coverFile.Name}";
+    }
+
+    private void OnAudioSelected(InputFileChangeEventArgs e)
+    {
+        audioFile = e.File;
+        song.Audio_File = $"audios/{audioFile.Name}";
+    }
+
+    private async Task SaveSong()
+    {
+        // basic metadata
+        song.DateCreated = DateTime.UtcNow;
+        song.DateUpdated = DateTime.UtcNow;
+        // set CreatedBy / UpdatedBy later using the logged in user if you want
+
+        using var context = DbFactory.CreateDbContext();
+        context.Song.Add(song);
         await context.SaveChangesAsync();
+
         NavigationManager.NavigateTo("/songs");
     }
 }
