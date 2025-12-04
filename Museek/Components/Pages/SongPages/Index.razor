@@ -3,13 +3,11 @@
 @using Museek.Domain
 @using Museek.Data
 @inject IDbContextFactory<MuseekContext> DbFactory
-@inject NavigationManager NavigationManager
 
 <PageTitle>Songs</PageTitle>
 
 <div class="library-container">
 
-    <!-- Header -->
     <div class="header">
         <h2>My Library</h2>
 
@@ -19,18 +17,14 @@
                 <input type="text" placeholder="Search library" @bind="searchText" />
             </div>
 
-            <!-- Works because it triggers a real GET request -->
-            <form method="get" action="/songs/create">
-                <button type="submit" class="upload-btn">
-                    + Upload music
-                </button>
-            </form>
+            <a href="songs/create" class="action-btn primary">+ Upload music</a>
+            <a href="songs/edit" class="action-btn">Edit Song</a>
+            <a href="songs/details" class="action-btn">Details</a>
+            <a href="songs/delete" class="action-btn danger">Delete</a>
         </div>
     </div>
 
-    <!-- Song List -->
     <div class="song-list">
-
         <table class="song-table">
             <thead>
                 <tr>
@@ -46,7 +40,6 @@
                 @foreach (var s in FilteredSongs)
                 {
                     <tr>
-                        <!-- Song Info -->
                         <td class="song-info">
                             <img src="@s.Cover_Art" class="cover-img" />
                             <div class="song-text">
@@ -58,23 +51,15 @@
                         <td>@GetAlbumTitle(s.AlbumId)</td>
                         <td>@s.Duration</td>
 
-                        <!-- Three-dot menu -->
-                        <td class="action-cell">
-                            <div class="action-menu-wrapper">
-                                <button class="menu-btn">•••</button>
-
-                                <div class="menu-dropdown">
-                                    <a href="@($"songs/edit?id={s.Id}")">Edit</a>
-                                    <a href="@($"songs/details?id={s.Id}")">Details</a>
-                                    <a href="@($"songs/delete?id={s.Id}")">Delete</a>
-                                </div>
-                            </div>
+                        <td>
+                            <a href="@($"songs/edit?id={s.Id}")">Edit</a> |
+                            <a href="@($"songs/details?id={s.Id}")">Details</a> |
+                            <a href="@($"songs/delete?id={s.Id}")">Delete</a>
                         </td>
                     </tr>
                 }
             </tbody>
         </table>
-
     </div>
 
 </div>

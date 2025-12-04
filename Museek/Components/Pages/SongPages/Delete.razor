@@ -3,6 +3,7 @@
 @using Museek.Domain
 @inject IDbContextFactory<Museek.Data.MuseekContext> DbFactory
 @inject NavigationManager NavigationManager
+@attribute [Authorize(Roles = "Administrator, User")]
 
 <PageTitle>Delete</PageTitle>
 

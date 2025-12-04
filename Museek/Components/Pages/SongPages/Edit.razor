@@ -1,8 +1,8 @@
 ﻿@page "/songs/edit"
-@using Microsoft.EntityFrameworkCore
 @using Museek.Domain
+@using Microsoft.EntityFrameworkCore
 @inject IDbContextFactory<Museek.Data.MuseekContext> DbFactory
-@inject NavigationManager Navigation
+@inject NavigationManager NavigationManager
 
 @attribute [Authorize(Roles = "Administrator, User")]
 
@@ -10,6 +10,7 @@
 
 <div class="upload-container">
 
+    <!-- Header -->
     <div class="header">
         <h2>Edit Song</h2>
     </div>
@@ -22,42 +23,56 @@
     {
         <div class="form-card">
 
-            <div class="form-group">
-                <label>Song Title</label>
-                <input type="text" @bind="song.Title" />
-            </div>
+            <EditForm Model="song" OnValidSubmit="UpdateSong">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="text-danger" />
 
-            <div class="form-group">
-                <label>Artist</label>
-                <select @bind="song.ArtistId">
-                    @foreach (var a in artists)
-                    {
-                        <option value="@a.Id">@a.Name</option>
-                    }
-                </select>
-            </div>
+                <!-- Song Title -->
+                <div class="form-group">
+                    <label>Song Title</label>
+                    <InputText @bind-Value="song.Title" />
+                    <ValidationMessage For="() => song.Title" class="text-danger" />
+                </div>
 
-            <div class="form-group">
-                <label>Album</label>
-                <select @bind="song.AlbumId">
-                    @foreach (var al in albums)
-                    {
-                        <option value="@al.Id">@al.Title</option>
-                    }
-                </select>
-            </div>
+                <!-- Artist Select -->
+                <div class="form-group">
+                    <label>Artist</label>
+                    <InputSelect @bind-Value="song.ArtistId">
+                        @foreach (var a in artists)
+                        {
+                            <option value="@a.Id">@a.Name</option>
+                        }
+                    </InputSelect>
+                    <ValidationMessage For="() => song.ArtistId" class="text-danger" />
+                </div>
 
-            <div class="form-group">
-                <label>Replace Cover Image (optional)</label>
-                <InputFile OnChange="OnCoverSelected" />
-            </div>
+                <!-- Album Select -->
+                <div class="form-group">
+                    <label>Album</label>
+                    <InputSelect @bind-Value="song.AlbumId">
+                        @foreach (var al in albums)
+                        {
+                            <option value="@al.Id">@al.Title</option>
+                        }
+                    </InputSelect>
+                    <ValidationMessage For="() => song.AlbumId" class="text-danger" />
+                </div>
 
-            <div class="form-group">
-                <label>Replace Audio File (optional)</label>
-                <InputFile OnChange="OnAudioSelected" />
-            </div>
+                <!-- Cover File -->
+                <div class="form-group">
+                    <label>Replace Cover Image (optional)</label>
+                    <InputFile OnChange="OnCoverSelected" />
+                </div>
 
-            <button class="save-btn" @onclick="UpdateSong">Save Changes</button>
+                <!-- Audio File -->
+                <div class="form-group">
+                    <label>Replace Audio File (optional)</label>
+                    <InputFile OnChange="OnAudioSelected" />
+                </div>
+
+                <button class="save-btn" type="submit">Save Changes</button>
+
+            </EditForm>
         </div>
     }
 
@@ -68,7 +83,6 @@
     public int Id { get; set; }
 
     private Song? song;
-
     private List<Artist> artists = new();
     private List<Album> albums = new();
 
@@ -79,14 +93,16 @@
     {
         using var context = DbFactory.CreateDbContext();
 
+        // Load the song by ID
         song = await context.Song.FirstOrDefaultAsync(s => s.Id == Id);
 
         if (song == null)
         {
-            Navigation.NavigateTo("/notfound");
+            NavigationManager.NavigateTo("/notfound");
             return;
         }
 
+        // Load dropdowns
         artists = await context.Artist.OrderBy(a => a.Name).ToListAsync();
         albums = await context.Album.OrderBy(a => a.Title).ToListAsync();
     }
@@ -94,11 +110,13 @@
     private void OnCoverSelected(InputFileChangeEventArgs e)
     {
         newCoverFile = e.File;
+        song!.Cover_Art = $"images/{newCoverFile.Name}";
     }
 
     private void OnAudioSelected(InputFileChangeEventArgs e)
     {
         newAudioFile = e.File;
+        song!.Audio_File = $"audios/{newAudioFile.Name}";
     }
 
     private async Task UpdateSong()
@@ -108,30 +126,26 @@
         var existing = await context.Song.FirstOrDefaultAsync(s => s.Id == song!.Id);
         if (existing == null)
         {
-            Navigation.NavigateTo("/notfound");
+            NavigationManager.NavigateTo("/notfound");
             return;
         }
 
-        // Update main fields
+        // Update basic metadata
         existing.Title = song.Title;
         existing.ArtistId = song.ArtistId;
         existing.AlbumId = song.AlbumId;
-        existing.DateUpdated = DateTime.Now;
+        existing.DateUpdated = DateTime.UtcNow;
 
-        // Replace cover file if selected
+        // Replace cover only if user uploads a new one
         if (newCoverFile != null)
-        {
-            existing.Cover_Art = newCoverFile.Name;
-        }
+            existing.Cover_Art = song.Cover_Art;
 
-        // Replace audio file if selected
+        // Replace audio only if user uploads a new one
         if (newAudioFile != null)
-        {
-            existing.Audio_File = newAudioFile.Name;
-        }
+            existing.Audio_File = song.Audio_File;
 
         await context.SaveChangesAsync();
 
-        Navigation.NavigateTo("/songs");
+        NavigationManager.NavigateTo("/songs");
     }
 }
