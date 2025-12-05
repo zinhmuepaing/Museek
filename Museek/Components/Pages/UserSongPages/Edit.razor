@@ -6,12 +6,10 @@
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
 @attribute [Authorize]
-
+@rendermode InteractiveServer
 <PageTitle>Edit Saved Song</PageTitle>
-
 <h1>Edit Saved Song</h1>
 <hr />
-
 @if (userSong is null || song is null)
 {
     <p><em>Loading...</em></p>
@@ -20,7 +18,6 @@ else
 {
     <div class="row">
         <div class="col-md-6">
-
             <div class="song-edit-card">
                 <img src="@song.Cover_Art" class="song-img" />
 
@@ -32,21 +29,26 @@ else
             </div>
 
             <div class="mt-3">
-                <button class="btn btn-primary me-2" @onclick="GoToCreate">Add Another</button>
-                <button class="btn btn-danger" @onclick="GoToDelete">Delete</button>
+                <button class="btn btn-primary me-2"
+                        @onclick="@(() => GoToCreate())">
+                    Add Another
+                </button>
+
+                <button class="btn btn-danger"
+                        @onclick="@(() => GoToDelete())">
+                    Delete
+                </button>
             </div>
         </div>
     </div>
-}
 
+}
 <div class="mt-3">
     <a href="/usersongs">Back to List</a>
 </div>
-
 @code {
     [SupplyParameterFromQuery]
     private int Id { get; set; }
-
     private MuseekContext context = default!;
     private string currentUserId = string.Empty;
 
@@ -107,4 +109,5 @@ else
             await context.DisposeAsync();
         }
     }
+
 }
