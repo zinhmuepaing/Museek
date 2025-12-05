@@ -1,41 +1,137 @@
 ﻿@page "/usersongs"
 @using Microsoft.EntityFrameworkCore
-@using Microsoft.AspNetCore.Components.QuickGrid
 @using Museek.Domain
 @using Museek.Data
-@implements IAsyncDisposable
-@inject IDbContextFactory<Museek.Data.MuseekContext> DbFactory
+@inject IDbContextFactory<MuseekContext> DbFactory
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+@attribute [Authorize]
 
-<PageTitle>Index</PageTitle>
+<PageTitle>My Saved Songs</PageTitle>
 
-<h1>Index</h1>
+<div class="library-page">
 
-<p>
-    <a href="usersongs/create">Create New</a>
-</p>
+    <h1 class="page-title">My Saved Songs</h1>
 
-<QuickGrid Class="table" Items="context.UserSong">
-    <PropertyColumn Property="usersong => usersong.UserId" />
-    <PropertyColumn Property="usersong => usersong.SongId" />
-    <PropertyColumn Property="usersong => usersong.DateCreated" />
-    <PropertyColumn Property="usersong => usersong.DateUpdated" />
-    <PropertyColumn Property="usersong => usersong.CreatedBy" />
-    <PropertyColumn Property="usersong => usersong.UpdatedBy" />
+    <div class="tabs">
+        <span class="tab active">Saved</span>
+    </div>
 
-    <TemplateColumn Context="usersong">
-        <a href="@($"usersongs/edit?id={usersong.Id}")">Edit</a> |
-        <a href="@($"usersongs/details?id={usersong.Id}")">Details</a> |
-        <a href="@($"usersongs/delete?id={usersong.Id}")">Delete</a>
-    </TemplateColumn>
-</QuickGrid>
+    <div class="top-actions">
+        <div class="search-bar">
+            <img src="images/search.png" class="search-icon" />
+            <input type="text" placeholder="Search saved songs" @bind="searchText" />
+        </div>
+    </div>
+
+    <div class="song-table">
+
+        <div class="table-header">
+            <span class="col-title name-col">Name</span>
+            <span class="col-title small-col">Artist</span>
+            <span class="col-title small-col">Date saved</span>
+            <span class="col-title small-col">Actions</span>
+        </div>
+
+        @if (!FilteredSavedSongs.Any())
+        {
+            <div class="empty-row">
+                You have not saved any songs yet.
+            </div>
+        }
+        else
+        {
+            @foreach (var row in FilteredSavedSongs)
+            {
+                <div class="song-row">
+
+                    <div class="song-main">
+                        <img src="@row.Song.Cover_Art" class="song-img" />
+                        <div class="song-meta">
+                            <span class="song-name">@row.Song.Title</span>
+                            <span class="song-artist">@row.ArtistName</span>
+                        </div>
+                    </div>
+
+                    <div class="song-stat">@row.ArtistName</div>
+
+                    <div class="song-stat">
+                        @row.UserSong.DateCreated.ToShortDateString()
+                    </div>
+
+                    <div class="song-actions">
+                        <a href="@($"usersongs/edit?id={row.UserSong.Id}")">Edit</a> |
+                        <a href="@($"usersongs/details?id={row.UserSong.Id}")">Details</a> |
+                        <a href="@($"usersongs/delete?id={row.UserSong.Id}")">Delete</a>
+                    </div>
+
+                </div>
+            }
+        }
+    </div>
+
+</div>
 
 @code {
     private MuseekContext context = default!;
+    private string currentUserId = string.Empty;
+    private string searchText = "";
 
-    protected override void OnInitialized()
+    private List<SavedSongRow> savedSongs = new();
+
+    protected override async Task OnInitializedAsync()
     {
         context = DbFactory.CreateDbContext();
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        currentUserId =
+            user.FindFirst("userId")?.Value
+            ?? user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+            ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(currentUserId))
+        {
+            NavigationManager.NavigateTo("Account/Login");
+            return;
+        }
+
+        savedSongs = await (
+            from us in context.UserSong
+            join s in context.Song on us.SongId equals s.Id
+            join a in context.Artist on s.ArtistId equals a.Id into ag
+            from a in ag.DefaultIfEmpty()
+            where us.UserId == currentUserId
+            orderby us.DateCreated descending
+            select new SavedSongRow
+            {
+                UserSong = us,
+                Song = s,
+                ArtistName = a != null ? a.Name : "Unknown"
+            }
+        ).ToListAsync();
     }
 
-    public async ValueTask DisposeAsync() => await context.DisposeAsync();
+    private IEnumerable<SavedSongRow> FilteredSavedSongs =>
+        string.IsNullOrWhiteSpace(searchText)
+            ? savedSongs
+            : savedSongs.Where(r =>
+                (r.Song.Title ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase)
+                || (r.ArtistName ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase));
+
+    private sealed class SavedSongRow
+    {
+        public UserSong UserSong { get; set; } = default!;
+        public Song Song { get; set; } = default!;
+        public string ArtistName { get; set; } = "";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (context != null)
+        {
+            await context.DisposeAsync();
+        }
+    }
 }

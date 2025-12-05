@@ -2,7 +2,8 @@
 {
     public class UserSong: BaseDomainModel
     {
-        public int UserId { get; set; }
+        public string UserId { get; set; } = default!;
+
         public int SongId { get; set; }
     }
 }

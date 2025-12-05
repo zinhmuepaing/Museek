@@ -1,0 +1,114 @@
+﻿.save-page {
+    padding: 30px 60px;
+    font-family: "Poppins", sans-serif;
+}
+
+.page-title {
+    font-size: 36px;
+    font-weight: 700;
+    margin-bottom: 20px;
+}
+
+.top-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 20px;
+}
+
+.search-bar {
+    display: flex;
+    align-items: center;
+    border: 1px solid #ddd;
+    padding: 8px 14px;
+    border-radius: 30px;
+    width: 260px;
+    background: #fafafa;
+}
+
+    .search-bar input {
+        border: none;
+        outline: none;
+        background: transparent;
+        margin-left: 8px;
+        width: 100%;
+    }
+
+.search-icon {
+    width: 18px;
+    opacity: 0.6;
+}
+
+.song-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 20px;
+}
+
+.song-card {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 16px;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.card-img {
+    width: 100%;
+    height: 170px;
+    border-radius: 12px;
+    object-fit: cover;
+}
+
+.card-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.card-title {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.card-artist {
+    font-size: 14px;
+    color: #aaaaaa;
+}
+
+.heart-btn {
+    margin-top: 5px;
+    align-self: flex-start;
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    background: #ffbdfd;
+    color: black;
+}
+
+    .heart-btn.saved {
+        background: #444;
+        color: #ffffff;
+        cursor: default;
+    }
+
+.empty-row {
+    grid-column: 1 / -1;
+    padding: 20px 0;
+    color: #cccccc;
+}
+
+.toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: #333333;
+    color: #ffffff;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    opacity: 0.95;
+}

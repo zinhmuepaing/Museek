@@ -1,64 +1,45 @@
 ﻿@page "/usersongs/edit"
 @using Microsoft.EntityFrameworkCore
 @using Museek.Domain
-@inject IDbContextFactory<Museek.Data.MuseekContext> DbFactory
+@using Museek.Data
+@inject IDbContextFactory<MuseekContext> DbFactory
+@inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
+@attribute [Authorize]
 
-<PageTitle>Edit</PageTitle>
+<PageTitle>Edit Saved Song</PageTitle>
 
-<h1>Edit</h1>
-
-<h2>UserSong</h2>
+<h1>Edit Saved Song</h1>
 <hr />
-@if (UserSong is null)
+
+@if (userSong is null || song is null)
 {
     <p><em>Loading...</em></p>
 }
 else
 {
     <div class="row">
-        <div class="col-md-4">
-            <EditForm method="post" Model="UserSong" OnValidSubmit="UpdateUserSong" FormName="edit" Enhance>
-                <DataAnnotationsValidator />
-                <ValidationSummary role="alert"/>
-                <input type="hidden" name="UserSong.Id" value="@UserSong.Id" />
-                <div class="mb-3">
-                    <label for="userid" class="form-label">UserId:</label>
-                    <InputNumber id="userid" @bind-Value="UserSong.UserId" class="form-control" />
-                    <ValidationMessage For="() => UserSong.UserId" class="text-danger" />
+        <div class="col-md-6">
+
+            <div class="song-edit-card">
+                <img src="@song.Cover_Art" class="song-img" />
+
+                <div class="song-meta">
+                    <h3>@song.Title</h3>
+                    <p>@artistName</p>
+                    <p><small>Saved on @userSong.DateCreated.ToShortDateString()</small></p>
                 </div>
-                <div class="mb-3">
-                    <label for="songid" class="form-label">SongId:</label>
-                    <InputNumber id="songid" @bind-Value="UserSong.SongId" class="form-control" />
-                    <ValidationMessage For="() => UserSong.SongId" class="text-danger" />
-                </div>
-                <div class="mb-3">
-                    <label for="datecreated" class="form-label">DateCreated:</label>
-                    <InputDate id="datecreated" @bind-Value="UserSong.DateCreated" class="form-control" />
-                    <ValidationMessage For="() => UserSong.DateCreated" class="text-danger" />
-                </div>
-                <div class="mb-3">
-                    <label for="dateupdated" class="form-label">DateUpdated:</label>
-                    <InputDate id="dateupdated" @bind-Value="UserSong.DateUpdated" class="form-control" />
-                    <ValidationMessage For="() => UserSong.DateUpdated" class="text-danger" />
-                </div>
-                <div class="mb-3">
-                    <label for="createdby" class="form-label">CreatedBy:</label>
-                    <InputText id="createdby" @bind-Value="UserSong.CreatedBy" class="form-control" />
-                    <ValidationMessage For="() => UserSong.CreatedBy" class="text-danger" />
-                </div>
-                <div class="mb-3">
-                    <label for="updatedby" class="form-label">UpdatedBy:</label>
-                    <InputText id="updatedby" @bind-Value="UserSong.UpdatedBy" class="form-control" />
-                    <ValidationMessage For="() => UserSong.UpdatedBy" class="text-danger" />
-                </div>
-                <button type="submit" class="btn btn-primary">Save</button>
-            </EditForm>
+            </div>
+
+            <div class="mt-3">
+                <button class="btn btn-primary me-2" @onclick="GoToCreate">Add Another</button>
+                <button class="btn btn-danger" @onclick="GoToDelete">Delete</button>
+            </div>
         </div>
     </div>
 }
 
-<div>
+<div class="mt-3">
     <a href="/usersongs">Back to List</a>
 </div>
 
@@ -66,49 +47,64 @@ else
     [SupplyParameterFromQuery]
     private int Id { get; set; }
 
-    [SupplyParameterFromForm]
-    private UserSong? UserSong { get; set; }
+    private MuseekContext context = default!;
+    private string currentUserId = string.Empty;
+
+    private UserSong? userSong;
+    private Song? song;
+    private string artistName = "Unknown";
 
     protected override async Task OnInitializedAsync()
     {
-        using var context = DbFactory.CreateDbContext();
-        UserSong ??= await context.UserSong.FirstOrDefaultAsync(m => m.Id == Id);
+        context = DbFactory.CreateDbContext();
 
-        if (UserSong is null)
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        currentUserId =
+            user.FindFirst("userId")?.Value
+            ?? user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+            ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(currentUserId))
+        {
+            NavigationManager.NavigateTo("Account/Login");
+            return;
+        }
+
+        userSong = await context.UserSong.FirstOrDefaultAsync(
+            us => us.Id == Id && us.UserId == currentUserId);
+
+        if (userSong == null)
         {
             NavigationManager.NavigateTo("notfound");
+            return;
+        }
+
+        song = await context.Song.FirstOrDefaultAsync(s => s.Id == userSong.SongId);
+
+        if (song != null)
+        {
+            var artist = await context.Artist.FirstOrDefaultAsync(a => a.Id == song.ArtistId);
+            artistName = artist?.Name ?? "Unknown";
         }
     }
 
-    // To protect from overposting attacks, enable the specific properties you want to bind to.
-    // For more information, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
-    private async Task UpdateUserSong()
+    private void GoToCreate()
     {
-        using var context = DbFactory.CreateDbContext();
-        context.Attach(UserSong!).State = EntityState.Modified;
-
-        try
-        {
-            await context.SaveChangesAsync();
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            if (!UserSongExists(UserSong!.Id))
-            {
-                NavigationManager.NavigateTo("notfound");
-            }
-            else
-            {
-                throw;
-            }
-        }
-
-        NavigationManager.NavigateTo("/usersongs");
+        NavigationManager.NavigateTo("/usersongs/create");
     }
 
-    private bool UserSongExists(int id)
+    private void GoToDelete()
     {
-        using var context = DbFactory.CreateDbContext();
-        return context.UserSong.Any(e => e.Id == id);
+        NavigationManager.NavigateTo($"/usersongs/delete?id={Id}");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (context != null)
+        {
+            await context.DisposeAsync();
+        }
     }
 }

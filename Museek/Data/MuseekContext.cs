@@ -14,7 +14,6 @@ namespace Museek.Data
         public DbSet<Museek.Domain.PlaylistSong> PlaylistSong { get; set; } = default!;
         public DbSet<Museek.Domain.Rating> Rating { get; set; } = default!;
         public DbSet<Museek.Domain.Song> Song { get; set; } = default!;
-        public DbSet<Museek.Domain.User> User { get; set; } = default!;
         public DbSet<Museek.Domain.UserSong> UserSong { get; set; } = default!;
 
 

@@ -1,69 +1,171 @@
 ﻿@page "/usersongs/create"
 @using Microsoft.EntityFrameworkCore
 @using Museek.Domain
-@inject IDbContextFactory<Museek.Data.MuseekContext> DbFactory
+@using Museek.Data
+@inject IDbContextFactory<MuseekContext> DbFactory
+@inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
+@attribute [Authorize]
+@rendermode InteractiveServer 
 
-<PageTitle>Create</PageTitle>
+<PageTitle>Add Songs to Library</PageTitle>
 
-<h1>Create</h1>
+<div class="save-page">
+<h1 class="page-title">Add to Your Library</h1>
 
-<h2>UserSong</h2>
-<hr />
-<div class="row">
-    <div class="col-md-4">
-        <EditForm method="post" Model="UserSong" OnValidSubmit="AddUserSong" FormName="create" Enhance>
-            <DataAnnotationsValidator />
-            <ValidationSummary class="text-danger" role="alert"/>
-            <div class="mb-3">
-                <label for="userid" class="form-label">UserId:</label> 
-                <InputNumber id="userid" @bind-Value="UserSong.UserId" class="form-control" /> 
-                <ValidationMessage For="() => UserSong.UserId" class="text-danger" /> 
-            </div>        
-            <div class="mb-3">
-                <label for="songid" class="form-label">SongId:</label> 
-                <InputNumber id="songid" @bind-Value="UserSong.SongId" class="form-control" /> 
-                <ValidationMessage For="() => UserSong.SongId" class="text-danger" /> 
-            </div>        
-            <div class="mb-3">
-                <label for="datecreated" class="form-label">DateCreated:</label> 
-                <InputDate id="datecreated" @bind-Value="UserSong.DateCreated" class="form-control" /> 
-                <ValidationMessage For="() => UserSong.DateCreated" class="text-danger" /> 
-            </div>        
-            <div class="mb-3">
-                <label for="dateupdated" class="form-label">DateUpdated:</label> 
-                <InputDate id="dateupdated" @bind-Value="UserSong.DateUpdated" class="form-control" /> 
-                <ValidationMessage For="() => UserSong.DateUpdated" class="text-danger" /> 
-            </div>        
-            <div class="mb-3">
-                <label for="createdby" class="form-label">CreatedBy:</label> 
-                <InputText id="createdby" @bind-Value="UserSong.CreatedBy" class="form-control" /> 
-                <ValidationMessage For="() => UserSong.CreatedBy" class="text-danger" /> 
-            </div>        
-            <div class="mb-3">
-                <label for="updatedby" class="form-label">UpdatedBy:</label> 
-                <InputText id="updatedby" @bind-Value="UserSong.UpdatedBy" class="form-control" /> 
-                <ValidationMessage For="() => UserSong.UpdatedBy" class="text-danger" /> 
-            </div>        
-            <button type="submit" class="btn btn-primary">Create</button>
-        </EditForm>
+<div class="top-actions">
+    <div class="search-bar">
+        <img src="images/search.png" class="search-icon" />
+        <input type="text" placeholder="Search songs" @bind="searchText" />
     </div>
 </div>
 
-<div>
-    <a href="/usersongs">Back to List</a>
+<div class="song-grid">
+    @if (!FilteredSongs.Any())
+    {
+        <div class="empty-row">
+            No songs match your search.
+        </div>
+    }
+    else
+    {
+        @foreach (var s in FilteredSongs)
+        {
+            var saved = savedSongIds.Contains(s.Id);
+
+            <div class="song-card">
+                <img src="@s.Cover_Art" class="card-img" />
+
+                <div class="card-meta">
+                    <div class="card-title">@s.Title</div>
+                    <div class="card-artist">@GetArtistName(s.ArtistId)</div>
+                </div>
+
+                <button class="heart-btn @(saved ? "saved" : "")"
+                        disabled="@saved"
+                        @onclick="@(() => SaveSongAsync(s.Id))">
+                    @if (saved)
+                    {
+                        <span>Saved ❤️</span>
+                    }
+                    else
+                    {
+                        <span>♥ Save</span>
+                    }
+                </button>
+            </div>
+        }
+    }
+</div>
+
+@if (showToast)
+{
+    <div class="toast">
+        @toastMessage
+    </div>
+}
+
 </div>
 
 @code {
-    [SupplyParameterFromForm]
-    private UserSong UserSong { get; set; } = new();
+private MuseekContext context = default!;
+private string currentUserId = string.Empty;
 
-    // To protect from overposting attacks, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
-    private async Task AddUserSong()
+private List<Song> songs = new();
+private List<Artist> artists = new();
+private HashSet<int> savedSongIds = new();
+
+private string searchText = "";
+
+private bool showToast = false;
+private string toastMessage = "";
+
+protected override async Task OnInitializedAsync()
+{
+    context = DbFactory.CreateDbContext();
+
+    var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+    var user = authState.User;
+
+    currentUserId =
+        user.FindFirst("userId")?.Value
+        ?? user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+        ?? string.Empty;
+
+    if (string.IsNullOrWhiteSpace(currentUserId))
     {
-        using var context = DbFactory.CreateDbContext();
-        context.UserSong.Add(UserSong);
-        await context.SaveChangesAsync();
-        NavigationManager.NavigateTo("/usersongs");
+        NavigationManager.NavigateTo("Account/Login");
+        return;
     }
+
+    songs = await context.Song.ToListAsync();
+    artists = await context.Artist.ToListAsync();
+
+    savedSongIds = (await context.UserSong
+            .Where(us => us.UserId == currentUserId)
+            .Select(us => us.SongId)
+            .ToListAsync())
+        .ToHashSet();
+}
+
+private IEnumerable<Song> FilteredSongs =>
+    string.IsNullOrWhiteSpace(searchText)
+        ? songs
+        : songs.Where(s =>
+            (s.Title ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase)
+            || GetArtistName(s.ArtistId).Contains(searchText, StringComparison.OrdinalIgnoreCase));
+
+private string GetArtistName(int artistId) =>
+    artists.FirstOrDefault(a => a.Id == artistId)?.Name ?? "Unknown";
+
+private async Task SaveSongAsync(int songId)
+{
+    if (savedSongIds.Contains(songId))
+    {
+        ShowToast("You already saved this song");
+        return;
+    }
+
+    var userSong = new UserSong
+    {
+        UserId = currentUserId,
+        SongId = songId,
+        DateCreated = DateTime.Now,
+        DateUpdated = DateTime.Now,
+        CreatedBy = currentUserId,
+        UpdatedBy = currentUserId
+    };
+
+    context.UserSong.Add(userSong);
+    await context.SaveChangesAsync();
+
+    savedSongIds.Add(songId);
+
+    ShowToast("Saved to your library");
+    StateHasChanged();
+}
+
+private void ShowToast(string message)
+{
+    toastMessage = message;
+    showToast = true;
+    _ = HideToastLater();
+}
+
+private async Task HideToastLater()
+{
+    await Task.Delay(2000);
+    showToast = false;
+    await InvokeAsync(StateHasChanged);
+}
+
+public async ValueTask DisposeAsync()
+{
+    if (context != null)
+    {
+        await context.DisposeAsync();
+    }
+}
+
+
 }
