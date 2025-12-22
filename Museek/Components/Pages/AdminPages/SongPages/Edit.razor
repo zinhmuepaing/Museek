@@ -1,6 +1,7 @@
 ﻿@page "/songs/edit"
 @using Microsoft.EntityFrameworkCore
 @using Museek.Domain
+@using Museek.Data
 @inject IDbContextFactory<Museek.Data.MuseekContext> DbFactory
 @inject NavigationManager NavigationManager
 @inject IWebHostEnvironment Env
@@ -66,42 +67,66 @@ else
                     <ValidationMessage For="() => Song.Cover_Art" class="text-danger" />
                 </div>
 
-                <!-- ALBUMID -->
+                <!-- ALBUM SELECT -->
                 <div class="mb-3">
-                    <label class="form-label">AlbumId:</label>
-                    <InputNumber @bind-Value="Song.AlbumId" class="form-control" />
+                    <label class="form-label">Album:</label>
+                    <InputSelect @bind-Value="Song.AlbumId" class="form-control">
+                        <option value="">-- Select Album --</option>
+
+                        @foreach (var album in Albums)
+                        {
+                            <option value="@album.Id">@album.Title</option>
+                        }
+
+                        <!-- Hardcoded fallback -->
+                        <option value="101">Hardcoded Album A</option>
+                        <option value="102">Hardcoded Album B</option>
+                        <option value="103">Hardcoded Album C</option>
+                    </InputSelect>
                     <ValidationMessage For="() => Song.AlbumId" class="text-danger" />
                 </div>
 
-                <!-- ARTISTID -->
+                <!-- ARTIST SELECT -->
                 <div class="mb-3">
-                    <label class="form-label">ArtistId:</label>
-                    <InputNumber @bind-Value="Song.ArtistId" class="form-control" />
+                    <label class="form-label">Artist:</label>
+                    <InputSelect @bind-Value="Song.ArtistId" class="form-control">
+                        <option value="">-- Select Artist --</option>
+
+                        @foreach (var artist in Artists)
+                        {
+                            <option value="@artist.Id">@artist.Name</option>
+                        }
+
+                        <!-- Hardcoded fallback -->
+                        <option value="201">Hardcoded Artist X</option>
+                        <option value="202">Hardcoded Artist Y</option>
+                        <option value="203">Hardcoded Artist Z</option>
+                    </InputSelect>
                     <ValidationMessage For="() => Song.ArtistId" class="text-danger" />
                 </div>
 
                 <!-- DATES -->
-                <div class="mb-3">
+                <div class="mb-3" hidden>
                     <label class="form-label">DateCreated:</label>
                     <InputDate @bind-Value="Song.DateCreated" class="form-control" />
                     <ValidationMessage For="() => Song.DateCreated" class="text-danger" />
                 </div>
 
-                <div class="mb-3">
+                <div class="mb-3" hidden>
                     <label class="form-label">DateUpdated:</label>
                     <InputDate @bind-Value="Song.DateUpdated" class="form-control" />
                     <ValidationMessage For="() => Song.DateUpdated" class="text-danger" />
                 </div>
 
                 <!-- CREATEDBY -->
-                <div class="mb-3">
+                <div class="mb-3" hidden>
                     <label class="form-label">CreatedBy:</label>
                     <InputText @bind-Value="Song.CreatedBy" class="form-control" />
                     <ValidationMessage For="() => Song.CreatedBy" class="text-danger" />
                 </div>
 
                 <!-- UPDATEDBY -->
-                <div class="mb-3">
+                <div class="mb-3" hidden>
                     <label class="form-label">UpdatedBy:</label>
                     <InputText @bind-Value="Song.UpdatedBy" class="form-control" />
                     <ValidationMessage For="() => Song.UpdatedBy" class="text-danger" />
@@ -128,9 +153,16 @@ else
     private List<string> AudioFiles = new();
     private List<string> ImageFiles = new();
 
+    private IList<Album> Albums = new List<Album>();
+    private IList<Artist> Artists = new List<Artist>();
+
     protected override void OnInitialized()
     {
         LoadFileLists();
+
+        using var context = DbFactory.CreateDbContext();
+        Albums = context.Album.ToList();
+        Artists = context.Artist.ToList();
     }
 
     protected override async Task OnInitializedAsync()

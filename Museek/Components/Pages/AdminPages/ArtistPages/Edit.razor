@@ -3,13 +3,14 @@
 @using Museek.Domain
 @inject IDbContextFactory<Museek.Data.MuseekContext> DbFactory
 @inject NavigationManager NavigationManager
+@inject IWebHostEnvironment Env
 
 <PageTitle>Edit</PageTitle>
 
 <h1>Edit</h1>
-
 <h2>Artist</h2>
 <hr />
+
 @if (Artist is null)
 {
     <p><em>Loading...</em></p>
@@ -20,45 +21,51 @@ else
         <div class="col-md-4">
             <EditForm method="post" Model="Artist" OnValidSubmit="UpdateArtist" FormName="edit" Enhance>
                 <DataAnnotationsValidator />
-                <ValidationSummary role="alert"/>
+                <ValidationSummary />
+
                 <input type="hidden" name="Artist.Id" value="@Artist.Id" />
+
                 <div class="mb-3">
-                    <label for="name" class="form-label">Name:</label>
-                    <InputText id="name" @bind-Value="Artist.Name" class="form-control" />
-                    <ValidationMessage For="() => Artist.Name" class="text-danger" />
+                    <label class="form-label">Name:</label>
+                    <InputText @bind-Value="Artist.Name" class="form-control" />
                 </div>
+
                 <div class="mb-3">
-                    <label for="bio" class="form-label">Bio:</label>
-                    <InputText id="bio" @bind-Value="Artist.Bio" class="form-control" />
-                    <ValidationMessage For="() => Artist.Bio" class="text-danger" />
+                    <label class="form-label">Bio:</label>
+                    <InputText @bind-Value="Artist.Bio" class="form-control" />
                 </div>
+
                 <div class="mb-3">
-                    <label for="country" class="form-label">Country:</label>
-                    <InputText id="country" @bind-Value="Artist.Country" class="form-control" />
-                    <ValidationMessage For="() => Artist.Country" class="text-danger" />
+                    <label class="form-label">Country:</label>
+                    <InputText @bind-Value="Artist.Country" class="form-control" />
                 </div>
+
                 <div class="mb-3">
-                    <label for="datecreated" class="form-label">DateCreated:</label>
-                    <InputDate id="datecreated" @bind-Value="Artist.DateCreated" class="form-control" />
-                    <ValidationMessage For="() => Artist.DateCreated" class="text-danger" />
+                    <label class="form-label">Profile Picture:</label>
+                    <InputSelect @bind-Value="Artist.Profile_Pic" class="form-control">
+                        <option value="">-- Select Image --</option>
+                        @foreach (var img in ImageFiles)
+                        {
+                            <option value="@($"Artist Profile Images/{img}")">@img</option>
+                        }
+                    </InputSelect>
                 </div>
-                <div class="mb-3">
-                    <label for="dateupdated" class="form-label">DateUpdated:</label>
-                    <InputDate id="dateupdated" @bind-Value="Artist.DateUpdated" class="form-control" />
-                    <ValidationMessage For="() => Artist.DateUpdated" class="text-danger" />
-                </div>
-                <div class="mb-3">
-                    <label for="createdby" class="form-label">CreatedBy:</label>
-                    <InputText id="createdby" @bind-Value="Artist.CreatedBy" class="form-control" />
-                    <ValidationMessage For="() => Artist.CreatedBy" class="text-danger" />
-                </div>
-                <div class="mb-3">
-                    <label for="updatedby" class="form-label">UpdatedBy:</label>
-                    <InputText id="updatedby" @bind-Value="Artist.UpdatedBy" class="form-control" />
-                    <ValidationMessage For="() => Artist.UpdatedBy" class="text-danger" />
-                </div>
+
                 <button type="submit" class="btn btn-primary">Save</button>
             </EditForm>
+        </div>
+
+        <div class="col-md-8">
+            <div class="d-flex justify-content-center align-items-start">
+                @if (!string.IsNullOrWhiteSpace(Artist.Profile_Pic))
+                {
+                    <img src="@("/" + Artist.Profile_Pic)" alt="Artist Profile" class="img-fluid" style="max-height: 420px; width: auto; border-radius: 12px;" />
+                }
+                else
+                {
+                    <div class="text-muted">No image selected</div>
+                }
+            </div>
         </div>
     </div>
 }
@@ -74,46 +81,30 @@ else
     [SupplyParameterFromForm]
     private Artist? Artist { get; set; }
 
+    private List<string> ImageFiles = new();
+
     protected override async Task OnInitializedAsync()
     {
+        LoadImages();
         using var context = DbFactory.CreateDbContext();
-        Artist ??= await context.Artist.FirstOrDefaultAsync(m => m.Id == Id);
+        Artist ??= await context.Artist.FirstOrDefaultAsync(a => a.Id == Id);
 
         if (Artist is null)
-        {
             NavigationManager.NavigateTo("notfound");
-        }
     }
 
-    // To protect from overposting attacks, enable the specific properties you want to bind to.
-    // For more information, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
+    private void LoadImages()
+    {
+        var dir = Path.Combine(Env.WebRootPath, "Artist Profile Images");
+        if (Directory.Exists(dir))
+            ImageFiles = Directory.GetFiles(dir).Select(Path.GetFileName).ToList();
+    }
+
     private async Task UpdateArtist()
     {
         using var context = DbFactory.CreateDbContext();
         context.Attach(Artist!).State = EntityState.Modified;
-
-        try
-        {
-            await context.SaveChangesAsync();
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            if (!ArtistExists(Artist!.Id))
-            {
-                NavigationManager.NavigateTo("notfound");
-            }
-            else
-            {
-                throw;
-            }
-        }
-
+        await context.SaveChangesAsync();
         NavigationManager.NavigateTo("/artists");
-    }
-
-    private bool ArtistExists(int id)
-    {
-        using var context = DbFactory.CreateDbContext();
-        return context.Artist.Any(e => e.Id == id);
     }
 }

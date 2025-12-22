@@ -31,10 +31,17 @@
                     </NavLink>
                 </AuthorizeView>
 
+                <AuthorizeView Roles="User" Context="adminCtx">
+                    | <NavLink href="/discover">
+                        <img src="images/search.png" class="icon" /> Discover
+                    </NavLink>
+                </AuthorizeView>
 
-                <NavLink href="/discover">
-                    <img src="images/search.png" class="icon" /> Discover
-                </NavLink>
+                <AuthorizeView Roles="Administrator" Context="adminCtx">
+                    | <NavLink href="/artists">
+                        <img src="images/search.png" class="icon" /> Artists
+                    </NavLink>
+                </AuthorizeView>
 
                 <AuthorizeView Roles="User" Context="UserCtx">
                     | <NavLink href="/usersongs/create">

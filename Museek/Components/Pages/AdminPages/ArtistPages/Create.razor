@@ -3,53 +3,46 @@
 @using Museek.Domain
 @inject IDbContextFactory<Museek.Data.MuseekContext> DbFactory
 @inject NavigationManager NavigationManager
+@inject IWebHostEnvironment Env
 
 <PageTitle>Create</PageTitle>
 
 <h1>Create</h1>
-
 <h2>Artist</h2>
 <hr />
+
 <div class="row">
     <div class="col-md-4">
         <EditForm method="post" Model="Artist" OnValidSubmit="AddArtist" FormName="create" Enhance>
             <DataAnnotationsValidator />
-            <ValidationSummary class="text-danger" role="alert"/>
+            <ValidationSummary class="text-danger" />
+
             <div class="mb-3">
-                <label for="name" class="form-label">Name:</label> 
-                <InputText id="name" @bind-Value="Artist.Name" class="form-control" /> 
-                <ValidationMessage For="() => Artist.Name" class="text-danger" /> 
-            </div>        
+                <label class="form-label">Name:</label>
+                <InputText @bind-Value="Artist.Name" class="form-control" />
+            </div>
+
             <div class="mb-3">
-                <label for="bio" class="form-label">Bio:</label> 
-                <InputText id="bio" @bind-Value="Artist.Bio" class="form-control" /> 
-                <ValidationMessage For="() => Artist.Bio" class="text-danger" /> 
-            </div>        
+                <label class="form-label">Bio:</label>
+                <InputText @bind-Value="Artist.Bio" class="form-control" />
+            </div>
+
             <div class="mb-3">
-                <label for="country" class="form-label">Country:</label> 
-                <InputText id="country" @bind-Value="Artist.Country" class="form-control" /> 
-                <ValidationMessage For="() => Artist.Country" class="text-danger" /> 
-            </div>        
+                <label class="form-label">Country:</label>
+                <InputText @bind-Value="Artist.Country" class="form-control" />
+            </div>
+
             <div class="mb-3">
-                <label for="datecreated" class="form-label">DateCreated:</label> 
-                <InputDate id="datecreated" @bind-Value="Artist.DateCreated" class="form-control" /> 
-                <ValidationMessage For="() => Artist.DateCreated" class="text-danger" /> 
-            </div>        
-            <div class="mb-3">
-                <label for="dateupdated" class="form-label">DateUpdated:</label> 
-                <InputDate id="dateupdated" @bind-Value="Artist.DateUpdated" class="form-control" /> 
-                <ValidationMessage For="() => Artist.DateUpdated" class="text-danger" /> 
-            </div>        
-            <div class="mb-3">
-                <label for="createdby" class="form-label">CreatedBy:</label> 
-                <InputText id="createdby" @bind-Value="Artist.CreatedBy" class="form-control" /> 
-                <ValidationMessage For="() => Artist.CreatedBy" class="text-danger" /> 
-            </div>        
-            <div class="mb-3">
-                <label for="updatedby" class="form-label">UpdatedBy:</label> 
-                <InputText id="updatedby" @bind-Value="Artist.UpdatedBy" class="form-control" /> 
-                <ValidationMessage For="() => Artist.UpdatedBy" class="text-danger" /> 
-            </div>        
+                <label class="form-label">Profile Picture:</label>
+                <InputSelect @bind-Value="Artist.Profile_Pic" class="form-control">
+                    <option value="">-- Select Image --</option>
+                    @foreach (var img in ImageFiles)
+                    {
+                        <option value="@($"Artist Profile Images/{img}")">@img</option>
+                    }
+                </InputSelect>
+            </div>
+
             <button type="submit" class="btn btn-primary">Create</button>
         </EditForm>
     </div>
@@ -63,7 +56,20 @@
     [SupplyParameterFromForm]
     private Artist Artist { get; set; } = new();
 
-    // To protect from overposting attacks, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
+    private List<string> ImageFiles = new();
+
+    protected override void OnInitialized()
+    {
+        LoadImages();
+    }
+
+    private void LoadImages()
+    {
+        var dir = Path.Combine(Env.WebRootPath, "Artist Profile Images");
+        if (Directory.Exists(dir))
+            ImageFiles = Directory.GetFiles(dir).Select(Path.GetFileName).ToList();
+    }
+
     private async Task AddArtist()
     {
         using var context = DbFactory.CreateDbContext();

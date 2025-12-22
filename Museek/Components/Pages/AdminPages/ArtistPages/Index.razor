@@ -1,42 +1,85 @@
 ﻿@page "/artists"
 @using Microsoft.EntityFrameworkCore
-@using Microsoft.AspNetCore.Components.QuickGrid
 @using Museek.Domain
 @using Museek.Data
 @implements IAsyncDisposable
-@inject IDbContextFactory<Museek.Data.MuseekContext> DbFactory
+@inject IDbContextFactory<MuseekContext> DbFactory
 
-<PageTitle>Index</PageTitle>
+<PageTitle>Artists</PageTitle>
 
-<h1>Index</h1>
+<div class="library-page">
 
-<p>
-    <a href="artists/create">Create New</a>
-</p>
+    <h1 class="page-title">Artists</h1>
 
-<QuickGrid Class="table" Items="context.Artist">
-    <PropertyColumn Property="artist => artist.Name" />
-    <PropertyColumn Property="artist => artist.Bio" />
-    <PropertyColumn Property="artist => artist.Country" />
-    <PropertyColumn Property="artist => artist.DateCreated" />
-    <PropertyColumn Property="artist => artist.DateUpdated" />
-    <PropertyColumn Property="artist => artist.CreatedBy" />
-    <PropertyColumn Property="artist => artist.UpdatedBy" />
+    <!-- Tabs -->
+    <div class="tabs">
+        <span class="tab active">All</span>
+    </div>
 
-    <TemplateColumn Context="artist">
-        <a href="@($"artists/edit?id={artist.Id}")">Edit</a> |
-        <a href="@($"artists/details?id={artist.Id}")">Details</a> |
-        <a href="@($"artists/delete?id={artist.Id}")">Delete</a>
-    </TemplateColumn>
-</QuickGrid>
+    <!-- Search + Create -->
+    <div class="top-actions">
+        <div class="search-bar">
+            <img src="images/search.png" class="search-icon" />
+            <input type="text" placeholder="Search artists" @bind="searchText" />
+        </div>
+
+        <a href="artists/create" class="upload-btn">+ Create artist</a>
+    </div>
+
+    <!-- Table -->
+    <div class="song-table">
+
+        <div class="table-header">
+            <span class="col-title name-col">Name</span>
+            <span class="col-title small-col">Country</span>
+            <span class="col-title small-col">Actions</span>
+        </div>
+
+        @foreach (var a in FilteredArtists)
+        {
+            <div class="song-row">
+
+                <!-- Artist Info -->
+                <div class="song-main">
+                    <img src="@a.Profile_Pic" class="song-img" />
+                    <div class="song-meta" >
+                        <span class="song-name">@a.Name </span>
+
+                    </div>
+                </div>
+
+                <div class="song-stat">@a.Country</div>
+
+                <div class="song-actions">
+                    <a href="@($"artists/edit?id={a.Id}")">Edit</a> |
+                    <a href="@($"artists/details?id={a.Id}")">Details</a> |
+                    <a href="@($"artists/delete?id={a.Id}")">Delete</a>
+                </div>
+
+            </div>
+        }
+    </div>
+
+</div>
 
 @code {
     private MuseekContext context = default!;
+    private List<Artist> artists = new();
+
+    private string searchText = "";
 
     protected override void OnInitialized()
     {
         context = DbFactory.CreateDbContext();
+        artists = context.Artist.ToList();
     }
+
+    private IEnumerable<Artist> FilteredArtists =>
+        string.IsNullOrWhiteSpace(searchText)
+            ? artists
+            : artists.Where(a =>
+                (a.Name ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                (a.Country ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase));
 
     public async ValueTask DisposeAsync() => await context.DisposeAsync();
 }

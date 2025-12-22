@@ -40,6 +40,7 @@ builder.Services.AddIdentityCore<MuseekUser>(options => options.SignIn.RequireCo
     .AddDefaultTokenProviders();
 
 builder.Services.AddSingleton<IEmailSender<MuseekUser>, IdentityNoOpEmailSender>();
+builder.Services.AddControllers();
 
 var app = builder.Build();
 
@@ -63,3 +64,5 @@ app.MapRazorComponents<App>()
 app.MapAdditionalIdentityEndpoints(); ;
 
 app.Run();
+
+app.MapDefaultControllerRoute();
