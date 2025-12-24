@@ -5,6 +5,7 @@ let currentTimeLabel;
 let remainingTimeLabel;
 let updateInterval;
 
+
 window.initializeAudioPlayer = () => {
     audioPlayer = document.getElementById("audioPlayer");
     progressBar = document.getElementById("progressBar");
@@ -36,10 +37,6 @@ window.loadAudio = function (audioPath) {
         console.error("Failed to load:", audio.src);
     });
 };
-
-
-
-
 
 
 // Play or pause

@@ -1,93 +1,109 @@
-﻿@page "/playlists"
+﻿@page "/userlibrary"
+@rendermode InteractiveServer
 @using Microsoft.EntityFrameworkCore
-@using Museek.Domain
-@inject IDbContextFactory<Museek.Data.MuseekContext> DbFactory
-@using Microsoft.AspNetCore.Components.QuickGrid
 @using Microsoft.AspNetCore.Identity
 @using System.Security.Claims
-@rendermode InteractiveServer
+@using Museek.Domain
+@using Museek.Data
+@inject IDbContextFactory<MuseekContext> DbFactory
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+@inject UserManager<MuseekUser> UserManager
+@attribute [Authorize]
 
-<PageTitle>Index</PageTitle>
+<PageTitle>Library</PageTitle>
 
-<h1>Index</h1>
+<div class="library-page">
 
-<p>
-    <a href="playlists/create">Create New</a>
-</p>
+    <h1 class="page-title">Library</h1>
 
-@if (playlists == null)
-{
-    <p><em>Loading...</em></p>
-}
-else
-{
-    <QuickGrid Class="table" Items="FilteredPlaylists" Pagination="paginationState">
-        <PropertyColumn Property="playlist => playlist.Name" Sortable="true" />
-        <PropertyColumn Property="playlist => playlist.Description" />
-        <PropertyColumn Property="playlist => playlist.Cover_Image" />
+    <div class="tabs">
+        <span class="tab active">Playlists</span>
+        <a class="tab-link" href="/usersongs">Liked Songs</a>
+    </div>
 
-        <!-- User column -->
-        <TemplateColumn Context="playlist" Title="User">
-            @GetUserString(playlist.UserId)
-        </TemplateColumn>
+    <div class="top-actions">
+        <div class="search-bar">
+            <img src="images/search.png" class="search-icon" />
+            <input type="text" placeholder="Search playlists" @bind="searchText" />
+        </div>
 
-        <TemplateColumn Context="playlist">
-            <a href="@($"playlists/edit?id={playlist.Id}")">Edit</a> |
-            <a href="@($"playlists/details?id={playlist.Id}")">Details</a> |
-            <a href="@($"playlists/delete?id={playlist.Id}")">Delete</a>
-        </TemplateColumn>
+        <a href="/playlists/create" class="upload-btn">+ New Playlist</a>
+    </div>
 
-    </QuickGrid>
+    <div class="playlist-grid">
+        @if (!FilteredPlaylists.Any())
+        {
+            <div class="empty-row">
+                No playlists found.
+            </div>
+        }
+        else
+        {
+            @foreach (var p in FilteredPlaylists)
+            {
+                <a class="playlist-card" href="@($"/playlists/details?id={p.Id}")">
+                    <img src="@(!string.IsNullOrWhiteSpace(p.Cover_Image) ? p.Cover_Image : "images/default-cover.png")"
+                         class="playlist-img" />
 
-    <Paginator State="paginationState" />
-}
+                    <div class="playlist-meta">
+                        <div class="playlist-title">@p.Name</div>
+                        <div class="playlist-desc">@p.Description</div>
+                    </div>
+                </a>
+            }
+        }
+    </div>
+
+</div>
 
 @code {
-
-    PaginationState paginationState = new PaginationState { ItemsPerPage = 1 };
-
-    // Identity users replace your old custom User entity
-    private List<IdentityUser> IdentityUsers = new();
-
     private MuseekContext context = default!;
-    private string userId = string.Empty;
-    private bool isAdmin = false;
+    private string currentUserId = string.Empty;
+    private string searchText = "";
 
-    @inject AuthenticationStateProvider authenticationStateProvider
-    @inject UserManager<IdentityUser> UserManager
-
-    // Filter playlists by CreatedBy
-    private IQueryable<Playlist> FilteredPlaylists => isAdmin
-        ? context.Playlist
-        : context.Playlist.Where(e => e.CreatedBy == userId);
-
-    private List<Playlist>? playlists;
+    private List<Playlist> playlists = new();
+    private List<string> adminUserIds = new();
 
     protected override async Task OnInitializedAsync()
     {
-        var authState = await authenticationStateProvider.GetAuthenticationStateAsync();
+        context = DbFactory.CreateDbContext();
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         var user = authState.User;
 
-        // Correct Identity user ID claim
-        userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
+        currentUserId =
+            user.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? user.FindFirst("userId")?.Value
+            ?? string.Empty;
 
-        isAdmin = user.IsInRole("Administrator");
+        if (string.IsNullOrWhiteSpace(currentUserId))
+        {
+            NavigationManager.NavigateTo("Account/Login");
+            return;
+        }
 
-        using var context = DbFactory.CreateDbContext();
-        playlists = await context.Playlist.ToListAsync();
+        var admins = await UserManager.GetUsersInRoleAsync("Administrator");
+        adminUserIds = admins.Select(a => a.Id).ToList();
 
-        // Load all Identity users for display
-        IdentityUsers = UserManager.Users.ToList();
+        playlists = await context.Playlist
+            .Where(p => p.UserId == currentUserId || adminUserIds.Contains(p.UserId))
+            .OrderByDescending(p => p.DateCreated)
+            .ToListAsync();
     }
 
-    // Convert UserId → display string
-    private string GetUserString(string? userId)
+    private IEnumerable<Playlist> FilteredPlaylists =>
+        string.IsNullOrWhiteSpace(searchText)
+            ? playlists
+            : playlists.Where(p =>
+                (p.Name ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase)
+                || (p.Description ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase));
+
+    public async ValueTask DisposeAsync()
     {
-        if (string.IsNullOrWhiteSpace(userId))
-            return "Unknown User";
-
-        var user = IdentityUsers.FirstOrDefault(u => u.Id == userId);
-
-        return user == null ? "Unknown User" : user.Email;
+        if (context != null)
+        {
+            await context.DisposeAsync();
+        }
     }
 }

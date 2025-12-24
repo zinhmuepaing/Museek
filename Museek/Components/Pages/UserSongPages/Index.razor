@@ -1,17 +1,21 @@
 ﻿@page "/usersongs"
+@rendermode InteractiveServer
 @using Microsoft.EntityFrameworkCore
 @using Museek.Domain
 @using Museek.Data
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
 @inject IDbContextFactory<MuseekContext> DbFactory
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
 @attribute [Authorize]
 
-<PageTitle>My Saved Songs</PageTitle>
+<PageTitle>Library</PageTitle>
 
 <div class="library-page">
 
-    <h1 class="page-title">My Favorite Songs</h1>
+    <h1 class="page-title">Library</h1>
 
     <div class="tabs">
         <span class="tab active">Liked</span>
@@ -45,7 +49,12 @@
             {
                 <div class="song-row">
 
-                    <div class="song-main">
+                    <div class="song-main song-click"
+                         role="button"
+                         tabindex="0"
+                         @onclick="@(() => PlaySavedSong(row))"
+                         @onclick:stopPropagation="true"
+                         @onkeydown="@((KeyboardEventArgs e) => OnSongKeyDown(e, row))">
                         <img src="@row.Song.Cover_Art" class="song-img" />
                         <div class="song-meta">
                             <span class="song-name">@row.Song.Title</span>
@@ -72,12 +81,86 @@
 
 </div>
 
+@if (showPlayer)
+{
+    <div class="global-player-container">
+        <section class="player-box">
+            <button class="close-button" type="button" @onclick="ClosePlayer">×</button>
+
+            <div class="player-left">
+                <img id="songCover" src="@currentSong.Image" alt="Cover" />
+                <div class="song-info">
+                    <h4 id="songTitle">@currentSong.Title</h4>
+                    <p id="songArtist">@currentSong.Artist</p>
+                </div>
+                <img src="@(isLiked ? "images/heartAfter.png" : "images/heartBefore.png")"
+                     alt="like"
+                     class="icon-btn"
+                     @onclick="@ToggleLike" />
+            </div>
+
+            <div class="player-controls">
+                <input type="range" id="progressBar" min="0" max="100" value="@progress" @oninput="@SeekAudio" />
+                <div class="control-buttons">
+                    <img src="images/shuffleButton.png" alt="Shuffle" class="control-icon" @onclick="@ToggleShuffle" />
+                    <img src="images/prevButton.png" alt="Previous" class="control-icon" @onclick="@PreviousSong" />
+                    <img src="@(isPlaying ? "images/pauseButton.png" : "images/playButton.png")"
+                         id="playPause"
+                         alt="Play"
+                         class="control-icon main"
+                         @onclick="@TogglePlayPause" />
+                    <img src="images/nextButton.png" alt="Next" class="control-icon" @onclick="@NextSong" />
+                    <img src="images/repeatButton.png" alt="Repeat" class="control-icon" @onclick="@ToggleRepeat" />
+                </div>
+                <div class="time-display">
+                    <span id="currentTime">@currentTime</span>
+                    <span id="remainingTime">-@remainingTime</span>
+                </div>
+            </div>
+
+            <div class="volume-control">
+                <img src="images/volume.png" alt="Volume" class="control-icon" />
+                <input type="range" id="volumeBar" min="0" max="100" value="@volume" @oninput="@ChangeVolume" />
+            </div>
+
+            <audio id="audioPlayer" src="@GetEncodedAudioPath(currentSong.AudioPath)"></audio>
+        </section>
+    </div>
+}
+
 @code {
     private MuseekContext context = default!;
     private string currentUserId = string.Empty;
     private string searchText = "";
 
     private List<SavedSongRow> savedSongs = new();
+
+    private bool showPlayer = false;
+    private bool isPlaying = false;
+    private bool isLiked = false;
+    private double progress = 0;
+    private double volume = 70;
+    private string currentTime = "00:00";
+    private string remainingTime = "00:00";
+
+    private PlayerSong currentSong = new PlayerSong
+    {
+        Title = "",
+        Artist = "",
+        Image = "",
+        AudioPath = ""
+    };
+
+    // Playback state
+    private List<PlayerSong> playbackQueue = new();
+    private int currentIndex = -1;
+    private bool shuffleOn = false;
+    private bool repeatOn = false;
+    private readonly Random rng = new();
+    private Stack<int> shuffleHistory = new();
+
+    private DotNetObjectReference<Museek.Components.Pages.UserSongPages.Index>? dotNetRef;
+    private bool jsWired = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -111,6 +194,27 @@
                 ArtistName = a != null ? a.Name : "Unknown"
             }
         ).ToListAsync();
+
+        // Queue follows current filtered order at load time
+        playbackQueue = savedSongs.Select(r => new PlayerSong
+        {
+            Title = r.Song.Title ?? "Unknown Title",
+            Artist = r.ArtistName ?? "Unknown",
+            Image = r.Song.Cover_Art ?? "images/default-cover.png",
+            AudioPath = r.Song.Audio_File ?? ""
+        }).ToList();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("initializeAudioPlayer");
+
+            dotNetRef = DotNetObjectReference.Create(this);
+            await JSRuntime.InvokeVoidAsync("museekPlayer.wireEnded", dotNetRef);
+            jsWired = true;
+        }
     }
 
     private IEnumerable<SavedSongRow> FilteredSavedSongs =>
@@ -120,6 +224,229 @@
                 (r.Song.Title ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase)
                 || (r.ArtistName ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase));
 
+    private async Task PlaySavedSong(SavedSongRow row)
+    {
+        // Rebuild queue to match current visible order
+        var ordered = FilteredSavedSongs.ToList();
+        playbackQueue = ordered.Select(r => new PlayerSong
+        {
+            Title = r.Song.Title ?? "Unknown Title",
+            Artist = r.ArtistName ?? "Unknown",
+            Image = r.Song.Cover_Art ?? "images/default-cover.png",
+            AudioPath = r.Song.Audio_File ?? ""
+        }).ToList();
+
+        currentIndex = Math.Max(0, ordered.FindIndex(r => r.Song.Id == row.Song.Id));
+        shuffleHistory.Clear();
+
+        await PlayIndex(currentIndex, forcePlay: true);
+    }
+
+    private async Task PlayIndex(int index, bool forcePlay)
+    {
+        if (index < 0 || index >= playbackQueue.Count)
+            return;
+
+        currentIndex = index;
+
+        var s = playbackQueue[currentIndex];
+        currentSong = new PlayerSong
+        {
+            Title = s.Title,
+            Artist = s.Artist,
+            Image = s.Image,
+            AudioPath = s.AudioPath
+        };
+
+        showPlayer = true;
+
+        StateHasChanged();
+
+        await Task.Delay(50);
+
+        await JSRuntime.InvokeVoidAsync("initializeAudioPlayer");
+
+        if (jsWired)
+        {
+            await JSRuntime.InvokeVoidAsync("museekPlayer.setLoop", repeatOn);
+        }
+
+        var encodedPath = GetEncodedAudioPath(currentSong.AudioPath);
+        await JSRuntime.InvokeVoidAsync("loadAudio", encodedPath);
+
+        if (!isPlaying || forcePlay)
+        {
+            isPlaying = true;
+            await JSRuntime.InvokeVoidAsync("togglePlayPause");
+        }
+    }
+
+    private async Task ClosePlayer()
+    {
+        if (isPlaying)
+        {
+            await JSRuntime.InvokeVoidAsync("togglePlayPause");
+        }
+
+        await JSRuntime.InvokeVoidAsync("loadAudio", "");
+
+        isPlaying = false;
+        showPlayer = false;
+
+        currentSong = new PlayerSong
+        {
+            Title = "",
+            Artist = "",
+            Image = "",
+            AudioPath = ""
+        };
+
+        currentIndex = -1;
+        shuffleHistory.Clear();
+    }
+
+    private async Task TogglePlayPause()
+    {
+        isPlaying = !isPlaying;
+        await JSRuntime.InvokeVoidAsync("togglePlayPause");
+    }
+
+    private void ToggleLike()
+    {
+        isLiked = !isLiked;
+    }
+
+    private async Task PreviousSong()
+    {
+        if (playbackQueue.Count == 0 || currentIndex < 0)
+            return;
+
+        if (shuffleOn)
+        {
+            if (shuffleHistory.Count > 0)
+            {
+                var prev = shuffleHistory.Pop();
+                await PlayIndex(prev, forcePlay: true);
+                return;
+            }
+
+            // no history, fall back to normal previous
+        }
+
+        var nextIndex = currentIndex - 1;
+        if (nextIndex < 0)
+            nextIndex = playbackQueue.Count - 1;
+
+        await PlayIndex(nextIndex, forcePlay: true);
+    }
+
+    private async Task NextSong()
+    {
+        if (playbackQueue.Count == 0 || currentIndex < 0)
+            return;
+
+        if (repeatOn)
+        {
+            await PlayIndex(currentIndex, forcePlay: true);
+            return;
+        }
+
+        int nextIndex;
+
+        if (shuffleOn)
+        {
+            shuffleHistory.Push(currentIndex);
+
+            if (playbackQueue.Count == 1)
+            {
+                nextIndex = currentIndex;
+            }
+            else
+            {
+                do
+                {
+                    nextIndex = rng.Next(0, playbackQueue.Count);
+                }
+                while (nextIndex == currentIndex);
+            }
+        }
+        else
+        {
+            nextIndex = currentIndex + 1;
+            if (nextIndex >= playbackQueue.Count)
+                nextIndex = 0;
+        }
+
+        await PlayIndex(nextIndex, forcePlay: true);
+    }
+
+    private async Task SeekAudio(ChangeEventArgs e)
+    {
+        if (double.TryParse(e.Value?.ToString(), out double value))
+        {
+            progress = value;
+            await JSRuntime.InvokeVoidAsync("seekAudio", value);
+        }
+    }
+
+    private async Task ChangeVolume(ChangeEventArgs e)
+    {
+        if (double.TryParse(e.Value?.ToString(), out double value))
+        {
+            volume = value;
+            await JSRuntime.InvokeVoidAsync("changeVolume", value / 100);
+        }
+    }
+
+    private void ToggleShuffle()
+    {
+        shuffleOn = !shuffleOn;
+        shuffleHistory.Clear();
+    }
+
+    private async Task ToggleRepeat()
+    {
+        repeatOn = !repeatOn;
+
+        if (jsWired)
+        {
+            await JSRuntime.InvokeVoidAsync("museekPlayer.setLoop", repeatOn);
+        }
+    }
+
+    private async Task OnSongKeyDown(KeyboardEventArgs e, SavedSongRow row)
+    {
+        if (e.Key == "Enter" || e.Key == " ")
+        {
+            await PlaySavedSong(row);
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnAudioEnded()
+    {
+        if (!showPlayer)
+            return;
+
+        if (repeatOn)
+        {
+            await PlayIndex(currentIndex, forcePlay: true);
+            return;
+        }
+
+        await NextSong();
+    }
+
+    private static string GetEncodedAudioPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return "";
+
+        var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var encodedParts = parts.Select(p => Uri.EscapeDataString(p));
+        return string.Join("/", encodedParts);
+    }
+
     private sealed class SavedSongRow
     {
         public UserSong UserSong { get; set; } = default!;
@@ -127,11 +454,52 @@
         public string ArtistName { get; set; } = "";
     }
 
+    private sealed class PlayerSong
+    {
+        public string Title { get; set; } = "";
+        public string Artist { get; set; } = "";
+        public string Image { get; set; } = "";
+        public string AudioPath { get; set; } = "";
+    }
+
     public async ValueTask DisposeAsync()
     {
+        if (dotNetRef != null)
+        {
+            dotNetRef.Dispose();
+        }
+
         if (context != null)
         {
             await context.DisposeAsync();
         }
     }
 }
+
+<script>
+    window.museekPlayer = window.museekPlayer || {
+        wireEnded: function (dotNetRef) {
+            try {
+                const audio = document.getElementById("audioPlayer");
+                if (!audio) return;
+
+                if (audio._museekEndedHandler) {
+                    audio.removeEventListener("ended", audio._museekEndedHandler);
+                }
+
+                audio._museekEndedHandler = function () {
+                    dotNetRef.invokeMethodAsync("OnAudioEnded");
+                };
+
+                audio.addEventListener("ended", audio._museekEndedHandler);
+            } catch { }
+        },
+        setLoop: function (on) {
+            try {
+                const audio = document.getElementById("audioPlayer");
+                if (!audio) return;
+                audio.loop = !!on;
+            } catch { }
+        }
+    };
+</script>

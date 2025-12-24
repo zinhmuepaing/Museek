@@ -20,10 +20,12 @@
                 </NavLink>
 
                 <AuthorizeView Roles="User" Context="UserCtx">
-                    | <NavLink href="/usersongs">
+                    | <NavLink href="/userlibrary">
                         <img src="images/album.png" class="icon" /> Library
                     </NavLink>
                 </AuthorizeView>
+
+               @*  Need to add /usersongs for favorite songs *@
 
                 <AuthorizeView Roles="Administrator" Context="adminCtx">
                     | <NavLink href="/library">

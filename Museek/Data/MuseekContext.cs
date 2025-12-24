@@ -16,6 +16,8 @@ namespace Museek.Data
         public DbSet<Museek.Domain.Song> Song { get; set; } = default!;
         public DbSet<Museek.Domain.UserSong> UserSong { get; set; } = default!;
 
+       
+
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

@@ -1,61 +1,653 @@
 ﻿@page "/playlists/details"
+@rendermode InteractiveServer
 @using Microsoft.EntityFrameworkCore
+@using System.Security.Claims
 @using Museek.Domain
-@inject IDbContextFactory<Museek.Data.MuseekContext> DbFactory
+@using Museek.Data
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
+@inject IDbContextFactory<MuseekContext> DbFactory
+@inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@attribute [Authorize]
 
-<PageTitle>Details</PageTitle>
+<PageTitle>Playlist</PageTitle>
 
-<h1>Details</h1>
-
-<div>
-    <h2>Playlist</h2>
-    <hr />
-    @if (playlist is null)
-    {
+@if (playlist == null)
+{
+    <div class="page">
         <p><em>Loading...</em></p>
-    }
-    else
-    {
-        <dl class="row">
-            <dt class="col-sm-2">Name</dt>
-            <dd class="col-sm-10">@playlist.Name</dd>
-            <dt class="col-sm-2">Description</dt>
-            <dd class="col-sm-10">@playlist.Description</dd>
-            <dt class="col-sm-2">Cover Image</dt>
-            <dd class="col-sm-10">@playlist.Cover_Image</dd>
-            <dt class="col-sm-2">UserId</dt>
-            <dd class="col-sm-10">@playlist.UserId</dd>
-            <dt class="col-sm-2">DateCreated</dt>
-            <dd class="col-sm-10">@playlist.DateCreated</dd>
-            <dt class="col-sm-2">DateUpdated</dt>
-            <dd class="col-sm-10">@playlist.DateUpdated</dd>
-            <dt class="col-sm-2">CreatedBy</dt>
-            <dd class="col-sm-10">@playlist.CreatedBy</dd>
-            <dt class="col-sm-2">UpdatedBy</dt>
-            <dd class="col-sm-10">@playlist.UpdatedBy</dd>
-        </dl>
-        <div>
-            <a href="@($"/playlists/edit?id={playlist.Id}")">Edit</a> |
-            <a href="@($"/playlists")">Back to List</a>
+    </div>
+}
+else
+{
+    <div class="page">
+        <div class="header">
+            <div class="header-left">
+                <img class="cover" src="@(!string.IsNullOrWhiteSpace(playlist.Cover_Image) ? playlist.Cover_Image : "images/default-cover.png")" />
+                <div class="meta">
+                    <div class="title">@playlist.Name</div>
+                    <div class="desc">@playlist.Description</div>
+                </div>
+            </div>
+
+            <div class="header-actions">
+                @if (canEdit)
+                {
+                    <a class="btn" href="@($"/playlists/edit?id={playlist.Id}")">Edit</a>
+                    <a class="btn danger" href="@($"/playlists/delete?id={playlist.Id}")">Delete</a>
+                }
+                <button class="btn" @onclick="OpenAddSongsModal">+ Add Songs</button>
+                <a class="btn" href="/userlibrary">Back</a>
+            </div>
         </div>
-    }
-</div>
+
+        <div class="table">
+            <div class="thead">
+                <span>Name</span>
+                <span>Artist</span>
+                <span>Actions</span>
+            </div>
+
+            @if (rows.Count == 0)
+            {
+                <div class="empty">
+                    No songs in this playlist yet.
+                </div>
+            }
+            else
+            {
+                @foreach (var r in rows)
+                {
+                    <div class="trow">
+
+                        <div class="song-main song-click"
+                             role="button"
+                             tabindex="0"
+                             @onclick="@(() => PlayPlaylistSong(r))"
+                             @onclick:stopPropagation="true"
+                             @onkeydown="@((KeyboardEventArgs e) => OnSongKeyDown(e, r))">
+                            <img class="song-img" src="@(!string.IsNullOrWhiteSpace(r.CoverArt) ? r.CoverArt : "images/default-cover.png")" />
+                            <div class="song-meta">
+                                <div class="song-title">@r.Title</div>
+                            </div>
+                        </div>
+
+                        <div class="artist">@r.ArtistName</div>
+
+                        <div class="actions">
+                            <button class="link danger" @onclick="@(() => RemoveSong(r.SongId))">Remove</button>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+}
+
+@if (showAddSongsModal)
+{
+    <div class="modal-backdrop" @onclick="CloseAddSongsModal">
+        <div class="modal-card" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <div class="modal-title">Add Songs</div>
+                <button class="modal-close" @onclick="CloseAddSongsModal">×</button>
+            </div>
+
+            <div class="modal-row">
+                <input class="modal-input" placeholder="Search songs" @bind="songSearchText" />
+            </div>
+
+            <div class="song-list">
+                @foreach (var s in FilteredAllSongs)
+                {
+                    var alreadyIn = playlistSongIds.Contains(s.Id);
+
+                    <div class="song-row">
+                        <div class="song-row-left">
+                            <img class="song-cover" src="@(!string.IsNullOrWhiteSpace(s.Cover_Art) ? s.Cover_Art : "images/default-cover.png")" />
+                            <div class="song-row-meta">
+                                <div class="song-row-title">@s.Title</div>
+                                <div class="song-row-artist">@GetArtistName(s.ArtistId)</div>
+                            </div>
+                        </div>
+
+                        <button class="small-btn @(alreadyIn ? "disabled" : "")"
+                                disabled="@alreadyIn"
+                                @onclick="@(() => AddSong(s.Id))">
+                            @if (alreadyIn)
+                            {
+                                <span>Added</span>
+                            }
+                            else
+                            {
+                                <span>Add</span>
+                            }
+                        </button>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@if (showPlayer)
+{
+    <div class="global-player-container">
+        <section class="player-box">
+            <button class="close-button" type="button" @onclick="ClosePlayer">×</button>
+
+            <div class="player-left">
+                <img id="songCover" src="@currentSong.Image" alt="Cover" />
+                <div class="song-info">
+                    <h4 id="songTitle">@currentSong.Title</h4>
+                    <p id="songArtist">@currentSong.Artist</p>
+                </div>
+                <img src="@(isLiked ? "images/heartAfter.png" : "images/heartBefore.png")"
+                     alt="like"
+                     class="icon-btn"
+                     @onclick="@ToggleLike" />
+            </div>
+
+            <div class="player-controls">
+                <input type="range" id="progressBar" min="0" max="100" value="@progress" @oninput="@SeekAudio" />
+                <div class="control-buttons">
+                    <img src="images/shuffleButton.png" alt="Shuffle" class="control-icon" @onclick="@ToggleShuffle" />
+                    <img src="images/prevButton.png" alt="Previous" class="control-icon" @onclick="@PreviousSong" />
+                    <img src="@(isPlaying ? "images/pauseButton.png" : "images/playButton.png")"
+                         id="playPause"
+                         alt="Play"
+                         class="control-icon main"
+                         @onclick="@TogglePlayPause" />
+                    <img src="images/nextButton.png" alt="Next" class="control-icon" @onclick="@NextSong" />
+                    <img src="images/repeatButton.png" alt="Repeat" class="control-icon" @onclick="@ToggleRepeat" />
+                </div>
+                <div class="time-display">
+                    <span id="currentTime">@currentTime</span>
+                    <span id="remainingTime">-@remainingTime</span>
+                </div>
+            </div>
+
+            <div class="volume-control">
+                <img src="images/volume.png" alt="Volume" class="control-icon" />
+                <input type="range" id="volumeBar" min="0" max="100" value="@volume" @oninput="@ChangeVolume" />
+            </div>
+
+            <audio id="audioPlayer" src="@GetEncodedAudioPath(currentSong.AudioPath)"></audio>
+        </section>
+    </div>
+}
 
 @code {
+    private MuseekContext context = default!;
+    private string currentUserId = string.Empty;
+
+    [SupplyParameterFromQuery] private int Id { get; set; }
+
     private Playlist? playlist;
 
-    [SupplyParameterFromQuery]
-    private int Id { get; set; }
+    private bool canEdit = false;
+
+    private List<Song> allSongs = new();
+    private List<Artist> artists = new();
+
+    private List<Row> rows = new();
+    private HashSet<int> playlistSongIds = new();
+
+    private bool showAddSongsModal = false;
+    private string songSearchText = "";
+
+    private bool showPlayer = false;
+    private bool isPlaying = false;
+    private bool isLiked = false;
+    private double progress = 0;
+    private double volume = 70;
+    private string currentTime = "00:00";
+    private string remainingTime = "00:00";
+
+    private PlayerSong currentSong = new PlayerSong
+    {
+        Title = "",
+        Artist = "",
+        Image = "",
+        AudioPath = ""
+    };
+
+    // Playback state
+    private List<PlayerSong> playbackQueue = new();
+    private int currentIndex = -1;
+    private bool shuffleOn = false;
+    private bool repeatOn = false;
+    private readonly Random rng = new();
+    private Stack<int> shuffleHistory = new();
+
+    private DotNetObjectReference<Museek.Components.Pages.PlaylistPages.Details>? dotNetRef;
+    private bool jsWired = false;
 
     protected override async Task OnInitializedAsync()
     {
-        using var context = DbFactory.CreateDbContext();
-        playlist = await context.Playlist.FirstOrDefaultAsync(m => m.Id == Id);
+        context = DbFactory.CreateDbContext();
 
-        if (playlist is null)
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        currentUserId =
+            user.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? user.FindFirst("userId")?.Value
+            ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(currentUserId))
+        {
+            NavigationManager.NavigateTo("Account/Login");
+            return;
+        }
+
+        playlist = await context.Playlist.FirstOrDefaultAsync(p => p.Id == Id);
+        if (playlist == null)
         {
             NavigationManager.NavigateTo("notfound");
+            return;
+        }
+
+        var isAdmin = user.IsInRole("Administrator");
+        canEdit = isAdmin || playlist.UserId == currentUserId;
+
+        artists = await context.Artist.ToListAsync();
+        allSongs = await context.Song.ToListAsync();
+
+        await LoadPlaylistSongs();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("initializeAudioPlayer");
+
+            dotNetRef = DotNetObjectReference.Create(this);
+            await JSRuntime.InvokeVoidAsync("museekPlayer.wireEnded", dotNetRef);
+            jsWired = true;
+        }
+    }
+
+    private async Task LoadPlaylistSongs()
+    {
+        if (playlist == null)
+            return;
+
+        var links = await context.PlaylistSong
+            .Where(ps => ps.PlaylistId == playlist.Id)
+            .ToListAsync();
+
+        playlistSongIds = links.Select(l => l.SongId).ToHashSet();
+
+        var songIds = links.Select(l => l.SongId).ToList();
+
+        var songs = await context.Song
+            .Where(s => songIds.Contains(s.Id))
+            .ToListAsync();
+
+        rows = songs
+            .OrderBy(s => s.Title)
+            .Select(s => new Row
+            {
+                SongId = s.Id,
+                Title = s.Title ?? "Unknown",
+                CoverArt = s.Cover_Art,
+                ArtistName = GetArtistName(s.ArtistId),
+                AudioPath = s.Audio_File
+            })
+            .ToList();
+
+        playbackQueue = rows.Select(r => new PlayerSong
+        {
+            Title = r.Title ?? "Unknown Title",
+            Artist = r.ArtistName ?? "Unknown",
+            Image = r.CoverArt ?? "images/default-cover.png",
+            AudioPath = r.AudioPath ?? ""
+        }).ToList();
+    }
+
+    private string GetArtistName(int artistId) =>
+        artists.FirstOrDefault(a => a.Id == artistId)?.Name ?? "Unknown";
+
+    private void OpenAddSongsModal()
+    {
+        songSearchText = "";
+        showAddSongsModal = true;
+    }
+
+    private void CloseAddSongsModal()
+    {
+        showAddSongsModal = false;
+    }
+
+    private IEnumerable<Song> FilteredAllSongs =>
+        string.IsNullOrWhiteSpace(songSearchText)
+            ? allSongs
+            : allSongs.Where(s =>
+                (s.Title ?? "").Contains(songSearchText, StringComparison.OrdinalIgnoreCase)
+                || GetArtistName(s.ArtistId).Contains(songSearchText, StringComparison.OrdinalIgnoreCase));
+
+    private async Task AddSong(int songId)
+    {
+        if (playlist == null)
+            return;
+
+        var exists = await context.PlaylistSong.AnyAsync(ps => ps.PlaylistId == playlist.Id && ps.SongId == songId);
+        if (exists)
+            return;
+
+        var link = new PlaylistSong
+        {
+            PlaylistId = playlist.Id,
+            SongId = songId,
+            DateCreated = DateTime.Now,
+            DateUpdated = DateTime.Now,
+            CreatedBy = currentUserId,
+            UpdatedBy = currentUserId
+        };
+
+        context.PlaylistSong.Add(link);
+        await context.SaveChangesAsync();
+
+        await LoadPlaylistSongs();
+        StateHasChanged();
+    }
+
+    private async Task RemoveSong(int songId)
+    {
+        if (playlist == null)
+            return;
+
+        var link = await context.PlaylistSong
+            .FirstOrDefaultAsync(ps => ps.PlaylistId == playlist.Id && ps.SongId == songId);
+
+        if (link == null)
+            return;
+
+        context.PlaylistSong.Remove(link);
+        await context.SaveChangesAsync();
+
+        await LoadPlaylistSongs();
+        StateHasChanged();
+
+        if (currentIndex >= playbackQueue.Count)
+        {
+            currentIndex = playbackQueue.Count - 1;
+        }
+    }
+
+    private async Task PlayPlaylistSong(Row r)
+    {
+        if (playbackQueue.Count == 0)
+            return;
+
+        currentIndex = Math.Max(0, rows.FindIndex(x => x.SongId == r.SongId));
+        shuffleHistory.Clear();
+
+        await PlayIndex(currentIndex, forcePlay: true);
+    }
+
+    private async Task PlayIndex(int index, bool forcePlay)
+    {
+        if (index < 0 || index >= playbackQueue.Count)
+            return;
+
+        currentIndex = index;
+
+        var s = playbackQueue[currentIndex];
+        currentSong = new PlayerSong
+        {
+            Title = s.Title,
+            Artist = s.Artist,
+            Image = s.Image,
+            AudioPath = s.AudioPath
+        };
+
+        showPlayer = true;
+
+        StateHasChanged();
+
+        await Task.Delay(50);
+
+        await JSRuntime.InvokeVoidAsync("initializeAudioPlayer");
+
+        if (jsWired)
+        {
+            await JSRuntime.InvokeVoidAsync("museekPlayer.setLoop", repeatOn);
+        }
+
+        var encodedPath = GetEncodedAudioPath(currentSong.AudioPath);
+        await JSRuntime.InvokeVoidAsync("loadAudio", encodedPath);
+
+        if (!isPlaying || forcePlay)
+        {
+            isPlaying = true;
+            await JSRuntime.InvokeVoidAsync("togglePlayPause");
+        }
+    }
+
+    private async Task ClosePlayer()
+    {
+        if (isPlaying)
+        {
+            await JSRuntime.InvokeVoidAsync("togglePlayPause");
+        }
+
+        await JSRuntime.InvokeVoidAsync("loadAudio", "");
+
+        isPlaying = false;
+        showPlayer = false;
+
+        currentSong = new PlayerSong
+        {
+            Title = "",
+            Artist = "",
+            Image = "",
+            AudioPath = ""
+        };
+
+        currentIndex = -1;
+        shuffleHistory.Clear();
+    }
+
+    private async Task TogglePlayPause()
+    {
+        isPlaying = !isPlaying;
+        await JSRuntime.InvokeVoidAsync("togglePlayPause");
+    }
+
+    private void ToggleLike()
+    {
+        isLiked = !isLiked;
+    }
+
+    private async Task PreviousSong()
+    {
+        if (playbackQueue.Count == 0 || currentIndex < 0)
+            return;
+
+        if (shuffleOn)
+        {
+            if (shuffleHistory.Count > 0)
+            {
+                var prev = shuffleHistory.Pop();
+                await PlayIndex(prev, forcePlay: true);
+                return;
+            }
+        }
+
+        var nextIndex = currentIndex - 1;
+        if (nextIndex < 0)
+            nextIndex = playbackQueue.Count - 1;
+
+        await PlayIndex(nextIndex, forcePlay: true);
+    }
+
+    private async Task NextSong()
+    {
+        if (playbackQueue.Count == 0 || currentIndex < 0)
+            return;
+
+        if (repeatOn)
+        {
+            await PlayIndex(currentIndex, forcePlay: true);
+            return;
+        }
+
+        int nextIndex;
+
+        if (shuffleOn)
+        {
+            shuffleHistory.Push(currentIndex);
+
+            if (playbackQueue.Count == 1)
+            {
+                nextIndex = currentIndex;
+            }
+            else
+            {
+                do
+                {
+                    nextIndex = rng.Next(0, playbackQueue.Count);
+                }
+                while (nextIndex == currentIndex);
+            }
+        }
+        else
+        {
+            nextIndex = currentIndex + 1;
+            if (nextIndex >= playbackQueue.Count)
+                nextIndex = 0;
+        }
+
+        await PlayIndex(nextIndex, forcePlay: true);
+    }
+
+    private async Task SeekAudio(ChangeEventArgs e)
+    {
+        if (double.TryParse(e.Value?.ToString(), out double value))
+        {
+            progress = value;
+            await JSRuntime.InvokeVoidAsync("seekAudio", value);
+        }
+    }
+
+    private async Task ChangeVolume(ChangeEventArgs e)
+    {
+        if (double.TryParse(e.Value?.ToString(), out double value))
+        {
+            volume = value;
+            await JSRuntime.InvokeVoidAsync("changeVolume", value / 100);
+        }
+    }
+
+    private void ToggleShuffle()
+    {
+        shuffleOn = !shuffleOn;
+        shuffleHistory.Clear();
+    }
+
+    private async Task ToggleRepeat()
+    {
+        repeatOn = !repeatOn;
+
+        if (jsWired)
+        {
+            await JSRuntime.InvokeVoidAsync("museekPlayer.setLoop", repeatOn);
+        }
+    }
+
+    private async Task OnSongKeyDown(KeyboardEventArgs e, Row r)
+    {
+        if (e.Key == "Enter" || e.Key == " ")
+        {
+            await PlayPlaylistSong(r);
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnAudioEnded()
+    {
+        if (!showPlayer)
+            return;
+
+        if (repeatOn)
+        {
+            await PlayIndex(currentIndex, forcePlay: true);
+            return;
+        }
+
+        await NextSong();
+    }
+
+    private static string GetEncodedAudioPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return "";
+
+        var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var encodedParts = parts.Select(p => Uri.EscapeDataString(p));
+        return string.Join("/", encodedParts);
+    }
+
+    private sealed class Row
+    {
+        public int SongId { get; set; }
+        public string Title { get; set; } = "";
+        public string? CoverArt { get; set; }
+        public string ArtistName { get; set; } = "";
+        public string? AudioPath { get; set; }
+    }
+
+    private sealed class PlayerSong
+    {
+        public string Title { get; set; } = "";
+        public string Artist { get; set; } = "";
+        public string Image { get; set; } = "";
+        public string AudioPath { get; set; } = "";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (dotNetRef != null)
+        {
+            dotNetRef.Dispose();
+        }
+
+        if (context != null)
+        {
+            await context.DisposeAsync();
         }
     }
 }
+
+<script>
+    window.museekPlayer = window.museekPlayer || {
+        wireEnded: function (dotNetRef) {
+            try {
+                const audio = document.getElementById("audioPlayer");
+                if (!audio) return;
+
+                if (audio._museekEndedHandler) {
+                    audio.removeEventListener("ended", audio._museekEndedHandler);
+                }
+
+                audio._museekEndedHandler = function () {
+                    dotNetRef.invokeMethodAsync("OnAudioEnded");
+                };
+
+                audio.addEventListener("ended", audio._museekEndedHandler);
+            } catch { }
+        },
+        setLoop: function (on) {
+            try {
+                const audio = document.getElementById("audioPlayer");
+                if (!audio) return;
+                audio.loop = !!on;
+            } catch { }
+        }
+    };
+</script>

@@ -1,84 +1,151 @@
 ﻿@page "/playlists/delete"
+@rendermode InteractiveServer
 @using Microsoft.EntityFrameworkCore
+@using System.Security.Claims
 @using Museek.Domain
-@inject IDbContextFactory<Museek.Data.MuseekContext> DbFactory
+@using Museek.Data
+@inject IDbContextFactory<MuseekContext> DbFactory
 @inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@attribute [Authorize]
 
-<PageTitle>Delete</PageTitle>
+<PageTitle>Delete Playlist</PageTitle>
 
-<h1>Delete</h1>
-
-<p>Are you sure you want to delete this?</p>
-<div>
-    <h2>Playlist</h2>
-    <hr />
-    @if (playlist is null)
-    {
+@if (playlist == null)
+{
+    <div class="page">
         <p><em>Loading...</em></p>
-    }
-    else
-    {
-        <dl class="row">
-            <dt class="col-sm-2">Name</dt>
-            <dd class="col-sm-10">@playlist.Name</dd>
-        </dl>
-        <dl class="row">
-            <dt class="col-sm-2">Description</dt>
-            <dd class="col-sm-10">@playlist.Description</dd>
-        </dl>
-        <dl class="row">
-            <dt class="col-sm-2">Cover Image</dt>
-            <dd class="col-sm-10">@playlist.Cover_Image</dd>
-        </dl>
-        <dl class="row">
-            <dt class="col-sm-2">UserId</dt>
-            <dd class="col-sm-10">@playlist.UserId</dd>
-        </dl>
-        <dl class="row">
-            <dt class="col-sm-2">DateCreated</dt>
-            <dd class="col-sm-10">@playlist.DateCreated</dd>
-        </dl>
-        <dl class="row">
-            <dt class="col-sm-2">DateUpdated</dt>
-            <dd class="col-sm-10">@playlist.DateUpdated</dd>
-        </dl>
-        <dl class="row">
-            <dt class="col-sm-2">CreatedBy</dt>
-            <dd class="col-sm-10">@playlist.CreatedBy</dd>
-        </dl>
-        <dl class="row">
-            <dt class="col-sm-2">UpdatedBy</dt>
-            <dd class="col-sm-10">@playlist.UpdatedBy</dd>
-        </dl>
-        <EditForm method="post" Model="playlist" OnValidSubmit="DeletePlaylist" FormName="delete" Enhance>
-            <button type="submit" class="btn btn-danger" disabled="@(playlist is null)">Delete</button> |
-            <a href="/playlists">Back to List</a>
-        </EditForm>
-    }
-</div>
+    </div>
+}
+else
+{
+    <div class="page">
+        <h1 class="page-title">Delete Playlist</h1>
+
+        <div class="warning">
+            <div class="warning-title">This will permanently delete your playlist.</div>
+            <div class="warning-sub">
+                Songs will not be deleted, only this playlist and its saved song links.
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-top">
+                <img class="cover"
+                     src="@CoverSrc"
+                     alt="Playlist cover" />
+
+                <div class="meta">
+                    <div class="name">@playlist.Name</div>
+                    @if (!string.IsNullOrWhiteSpace(playlist.Description))
+                    {
+                        <div class="desc">@playlist.Description</div>
+                    }
+                    else
+                    {
+                        <div class="desc muted">No description</div>
+                    }
+
+                    <div class="stats">
+                        <div class="stat">
+                            <div class="stat-num">@songCount</div>
+                            <div class="stat-label">songs</div>
+                        </div>
+
+                        <div class="stat">
+                            <div class="stat-num">@playlist.DateCreated.ToShortDateString()</div>
+                            <div class="stat-label">created</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="actions">
+                <a class="btn" href="@($"/playlists/details?id={playlist.Id}")">Cancel</a>
+                <button class="danger"
+                        disabled="@isDeleting"
+                        @onclick="DeletePlaylist">
+                    @(isDeleting ? "Deleting..." : "Delete Playlist")
+                </button>
+            </div>
+        </div>
+    </div>
+}
 
 @code {
-    private Playlist? playlist;
+    private MuseekContext context = default!;
+    private string currentUserId = string.Empty;
 
-    [SupplyParameterFromQuery]
-    private int Id { get; set; }
+    [SupplyParameterFromQuery] private int Id { get; set; }
+
+    private Playlist? playlist;
+    private int songCount = 0;
+    private bool isDeleting = false;
+
+    private string CoverSrc =>
+        !string.IsNullOrWhiteSpace(playlist?.Cover_Image)
+            ? playlist!.Cover_Image!
+            : "images/default-cover.png";
 
     protected override async Task OnInitializedAsync()
     {
-        using var context = DbFactory.CreateDbContext();
-        playlist = await context.Playlist.FirstOrDefaultAsync(m => m.Id == Id);
+        context = DbFactory.CreateDbContext();
 
-        if (playlist is null)
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        currentUserId =
+            user.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? user.FindFirst("userId")?.Value
+            ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(currentUserId))
+        {
+            NavigationManager.NavigateTo("Account/Login");
+            return;
+        }
+
+        playlist = await context.Playlist.FirstOrDefaultAsync(p => p.Id == Id);
+        if (playlist == null)
         {
             NavigationManager.NavigateTo("notfound");
+            return;
         }
+
+        var isAdmin = user.IsInRole("Administrator");
+        var canDelete = isAdmin || playlist.UserId == currentUserId;
+        if (!canDelete)
+        {
+            NavigationManager.NavigateTo("/userlibrary");
+            return;
+        }
+
+        songCount = await context.PlaylistSong.CountAsync(ps => ps.PlaylistId == playlist.Id);
     }
 
     private async Task DeletePlaylist()
     {
-        using var context = DbFactory.CreateDbContext();
-        context.Playlist.Remove(playlist!);
-        await context.SaveChangesAsync();
-        NavigationManager.NavigateTo("/playlists");
+        if (playlist == null || isDeleting)
+            return;
+
+        isDeleting = true;
+
+        using var db = DbFactory.CreateDbContext();
+
+        var links = await db.PlaylistSong
+            .Where(ps => ps.PlaylistId == playlist.Id)
+            .ToListAsync();
+
+        if (links.Count > 0)
+        {
+            db.PlaylistSong.RemoveRange(links);
+        }
+
+        db.Playlist.Remove(playlist);
+        await db.SaveChangesAsync();
+
+        NavigationManager.NavigateTo("/userlibrary");
     }
 }

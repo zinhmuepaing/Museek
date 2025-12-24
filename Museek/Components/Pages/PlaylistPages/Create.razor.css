@@ -1,0 +1,64 @@
+﻿/* FILE: Pages/Playlists/Create.razor.css */
+.form-page {
+    padding: 30px 60px;
+    font-family: "Poppins", sans-serif;
+    max-width: 720px;
+}
+
+.page-title {
+    font-size: 42px;
+    font-weight: 700;
+    margin-bottom: 18px;
+}
+
+.field {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+    .field label {
+        color: rgba(255, 255, 255, 0.80);
+        font-weight: 700;
+        font-size: 13px;
+    }
+
+.input {
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: rgba(255, 255, 255, 0.06);
+    color: white;
+    padding: 10px 12px;
+    outline: none;
+}
+
+.actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 18px;
+}
+
+.primary {
+    border: none;
+    border-radius: 12px;
+    padding: 10px 14px;
+    cursor: pointer;
+    background: rgba(255, 105, 249, 0.28);
+    color: white;
+    font-weight: 800;
+}
+
+.secondary {
+    text-decoration: none;
+    border-radius: 12px;
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.10);
+    color: white;
+    font-weight: 800;
+}
+
+@media (max-width: 768px) {
+    .form-page {
+        padding: 22px 18px;
+    }
+}

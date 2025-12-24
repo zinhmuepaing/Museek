@@ -2,170 +2,422 @@
 @using Microsoft.EntityFrameworkCore
 @using Museek.Domain
 @using Museek.Data
+@using Microsoft.AspNetCore.Identity
+@using System.Security.Claims
 @inject IDbContextFactory<MuseekContext> DbFactory
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
+@inject UserManager<MuseekUser> UserManager
 @attribute [Authorize]
-@rendermode InteractiveServer 
+@rendermode InteractiveServer
 
 <PageTitle>Add Songs to Library</PageTitle>
 
 <div class="save-page">
-<h1 class="page-title">Add to Your Library</h1>
+    <h1 class="page-title">Add to Your Library</h1>
 
-<div class="top-actions">
-    <div class="search-bar">
-        <img src="images/search.png" class="search-icon" />
-        <input type="text" placeholder="Search songs" @bind="searchText" />
-    </div>
-</div>
-
-<div class="song-grid">
-    @if (!FilteredSongs.Any())
-    {
-        <div class="empty-row">
-            No songs match your search.
+    <div class="top-actions">
+        <div class="search-bar">
+            <img src="images/search.png" class="search-icon" />
+            <input type="text" placeholder="Search songs" @bind="searchText" />
         </div>
-    }
-    else
-    {
-        @foreach (var s in FilteredSongs)
+    </div>
+
+    <div class="song-grid">
+        @if (!FilteredSongs.Any())
         {
-            var saved = savedSongIds.Contains(s.Id);
-
-            <div class="song-card">
-                <img src="@s.Cover_Art" class="card-img" />
-
-                <div class="card-meta">
-                    <div class="card-title">@s.Title</div>
-                    <div class="card-artist">@GetArtistName(s.ArtistId)</div>
-                </div>
-
-                <button class="heart-btn @(saved ? "saved" : "")"
-                        disabled="@saved"
-                        @onclick="@(() => SaveSongAsync(s.Id))">
-                    @if (saved)
-                    {
-                        <span>Liked ❤️</span>
-                    }
-                    else
-                    {
-                        <span>♥ Like</span>
-                    }
-                </button>
+            <div class="empty-row">
+                No songs match your search.
             </div>
         }
+        else
+        {
+            @foreach (var s in FilteredSongs)
+            {
+                var saved = savedSongIds.Contains(s.Id);
+
+                <div class="song-card">
+                    <img src="@s.Cover_Art" class="card-img" />
+
+                    <div class="card-meta">
+                        <div class="card-title">@s.Title</div>
+                        <div class="card-artist">@GetArtistName(s.ArtistId)</div>
+                    </div>
+
+                    <div class="card-actions">
+                        <button class="heart-btn @(saved ? "saved" : "")"
+                                disabled="@saved"
+                                @onclick="@(() => SaveSongAsync(s.Id))">
+                            @if (saved)
+                            {
+                                <span>Liked ❤️</span>
+                            }
+                            else
+                            {
+                                <span>♥ Like</span>
+                            }
+                        </button>
+
+                        <button class="playlist-btn"
+                                @onclick="@(() => OpenAddToPlaylist(s))">
+                            + Add to Playlist
+                        </button>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+
+    @if (showToast)
+    {
+        <div class="toast">
+            @toastMessage
+        </div>
     }
 </div>
 
-@if (showToast)
+@if (showPlaylistModal)
 {
-    <div class="toast">
-        @toastMessage
+    <div class="modal-backdrop" @onclick="ClosePlaylistModal">
+        <div class="modal-card" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <div class="modal-title">
+                    Add to Playlist
+                </div>
+                <button class="modal-close" @onclick="ClosePlaylistModal">×</button>
+            </div>
+
+            <div class="modal-subtitle">
+                Selected song: <b>@(selectedSong?.Title ?? "")</b>
+            </div>
+
+            <div class="modal-row">
+                <input class="modal-input"
+                       placeholder="Search your playlists"
+                       @bind="playlistSearchText" />
+                <button class="new-playlist-btn" @onclick="ToggleNewPlaylist">
+                    New Playlist
+                </button>
+            </div>
+
+            @if (showNewPlaylistBox)
+            {
+                <div class="new-playlist-box">
+                    <input class="modal-input"
+                           placeholder="Playlist name"
+                           @bind="newPlaylistName" />
+                    <input class="modal-input"
+                           placeholder="Description (optional)"
+                           @bind="newPlaylistDescription" />
+                    <button class="primary-btn" @onclick="CreatePlaylistAndAddSong">
+                        Create and Add
+                    </button>
+                </div>
+            }
+
+            <div class="playlist-list">
+                @if (!FilteredPlaylistsForModal.Any())
+                {
+                    <div class="modal-empty">
+                        No playlists found.
+                    </div>
+                }
+                else
+                {
+                    @foreach (var p in FilteredPlaylistsForModal)
+                    {
+                        var alreadyIn = playlistSongMap.TryGetValue(p.Id, out var set) && selectedSong != null && set.Contains(selectedSong.Id);
+
+                        <div class="playlist-row">
+                            <div class="playlist-row-left">
+                                <img src="@(!string.IsNullOrWhiteSpace(p.Cover_Image) ? p.Cover_Image : "images/default-cover.png")"
+                                     class="playlist-cover" />
+                                <div class="playlist-meta">
+                                    <div class="playlist-name">@p.Name</div>
+                                    <div class="playlist-desc">@p.Description</div>
+                                </div>
+                            </div>
+
+                            <button class="small-btn @(alreadyIn ? "disabled" : "")"
+                                    disabled="@alreadyIn"
+                                    @onclick="@(() => AddSongToPlaylist(p.Id))">
+                                @if (alreadyIn)
+                                {
+                                    <span>Added</span>
+                                }
+                                else
+                                {
+                                    <span>Add</span>
+                                }
+                            </button>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
     </div>
 }
 
-</div>
-
 @code {
-private MuseekContext context = default!;
-private string currentUserId = string.Empty;
+    private MuseekContext context = default!;
+    private string currentUserId = string.Empty;
 
-private List<Song> songs = new();
-private List<Artist> artists = new();
-private HashSet<int> savedSongIds = new();
+    private List<Song> songs = new();
+    private List<Artist> artists = new();
+    private HashSet<int> savedSongIds = new();
 
-private string searchText = "";
+    private string searchText = "";
 
-private bool showToast = false;
-private string toastMessage = "";
+    private bool showToast = false;
+    private string toastMessage = "";
 
-protected override async Task OnInitializedAsync()
-{
-    context = DbFactory.CreateDbContext();
+    private bool showPlaylistModal = false;
+    private Song? selectedSong;
 
-    var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-    var user = authState.User;
+    private List<Playlist> accessiblePlaylists = new();
+    private string playlistSearchText = "";
+    private bool showNewPlaylistBox = false;
 
-    currentUserId =
-        user.FindFirst("userId")?.Value
-        ?? user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-        ?? string.Empty;
+    private string newPlaylistName = "";
+    private string newPlaylistDescription = "";
 
-    if (string.IsNullOrWhiteSpace(currentUserId))
+    // playlistId -> set(songIds)
+    private Dictionary<int, HashSet<int>> playlistSongMap = new();
+
+    protected override async Task OnInitializedAsync()
     {
-        NavigationManager.NavigateTo("Account/Login");
-        return;
+        context = DbFactory.CreateDbContext();
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        currentUserId =
+            user.FindFirst("userId")?.Value
+            ?? user.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(currentUserId))
+        {
+            NavigationManager.NavigateTo("Account/Login");
+            return;
+        }
+
+        songs = await context.Song.ToListAsync();
+        artists = await context.Artist.ToListAsync();
+
+        savedSongIds = (await context.UserSong
+                .Where(us => us.UserId == currentUserId)
+                .Select(us => us.SongId)
+                .ToListAsync())
+            .ToHashSet();
     }
 
-    songs = await context.Song.ToListAsync();
-    artists = await context.Artist.ToListAsync();
+    private IEnumerable<Song> FilteredSongs =>
+        string.IsNullOrWhiteSpace(searchText)
+            ? songs
+            : songs.Where(s =>
+                (s.Title ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase)
+                || GetArtistName(s.ArtistId).Contains(searchText, StringComparison.OrdinalIgnoreCase));
 
-    savedSongIds = (await context.UserSong
-            .Where(us => us.UserId == currentUserId)
-            .Select(us => us.SongId)
-            .ToListAsync())
-        .ToHashSet();
-}
+    private string GetArtistName(int artistId) =>
+        artists.FirstOrDefault(a => a.Id == artistId)?.Name ?? "Unknown";
 
-private IEnumerable<Song> FilteredSongs =>
-    string.IsNullOrWhiteSpace(searchText)
-        ? songs
-        : songs.Where(s =>
-            (s.Title ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase)
-            || GetArtistName(s.ArtistId).Contains(searchText, StringComparison.OrdinalIgnoreCase));
-
-private string GetArtistName(int artistId) =>
-    artists.FirstOrDefault(a => a.Id == artistId)?.Name ?? "Unknown";
-
-private async Task SaveSongAsync(int songId)
-{
-    if (savedSongIds.Contains(songId))
+    private async Task SaveSongAsync(int songId)
     {
-        ShowToast("You already saved this song");
-        return;
+        if (savedSongIds.Contains(songId))
+        {
+            ShowToast("You already saved this song");
+            return;
+        }
+
+        var userSong = new UserSong
+        {
+            UserId = currentUserId,
+            SongId = songId,
+            DateCreated = DateTime.Now,
+            DateUpdated = DateTime.Now,
+            CreatedBy = currentUserId,
+            UpdatedBy = currentUserId
+        };
+
+        context.UserSong.Add(userSong);
+        await context.SaveChangesAsync();
+
+        savedSongIds.Add(songId);
+
+        ShowToast("Saved to your library");
+        StateHasChanged();
     }
 
-    var userSong = new UserSong
+    private void ShowToast(string message)
     {
-        UserId = currentUserId,
-        SongId = songId,
-        DateCreated = DateTime.Now,
-        DateUpdated = DateTime.Now,
-        CreatedBy = currentUserId,
-        UpdatedBy = currentUserId
-    };
-
-    context.UserSong.Add(userSong);
-    await context.SaveChangesAsync();
-
-    savedSongIds.Add(songId);
-
-    ShowToast("Saved to your library");
-    StateHasChanged();
-}
-
-private void ShowToast(string message)
-{
-    toastMessage = message;
-    showToast = true;
-    _ = HideToastLater();
-}
-
-private async Task HideToastLater()
-{
-    await Task.Delay(2000);
-    showToast = false;
-    await InvokeAsync(StateHasChanged);
-}
-
-public async ValueTask DisposeAsync()
-{
-    if (context != null)
-    {
-        await context.DisposeAsync();
+        toastMessage = message;
+        showToast = true;
+        _ = HideToastLater();
     }
-}
 
+    private async Task HideToastLater()
+    {
+        await Task.Delay(2000);
+        showToast = false;
+        await InvokeAsync(StateHasChanged);
+    }
 
+    private async Task OpenAddToPlaylist(Song song)
+    {
+        selectedSong = song;
+        playlistSearchText = "";
+        showNewPlaylistBox = false;
+        newPlaylistName = "";
+        newPlaylistDescription = "";
+
+        await LoadAccessiblePlaylists();
+        await LoadPlaylistSongMap();
+
+        showPlaylistModal = true;
+        StateHasChanged();
+    }
+
+    private void ClosePlaylistModal()
+    {
+        showPlaylistModal = false;
+        selectedSong = null;
+        showNewPlaylistBox = false;
+        newPlaylistName = "";
+        newPlaylistDescription = "";
+    }
+
+    private void ToggleNewPlaylist()
+    {
+        showNewPlaylistBox = !showNewPlaylistBox;
+    }
+
+    private IEnumerable<Playlist> FilteredPlaylistsForModal =>
+        string.IsNullOrWhiteSpace(playlistSearchText)
+            ? accessiblePlaylists
+            : accessiblePlaylists.Where(p =>
+                (p.Name ?? "").Contains(playlistSearchText, StringComparison.OrdinalIgnoreCase)
+                || (p.Description ?? "").Contains(playlistSearchText, StringComparison.OrdinalIgnoreCase));
+
+    private async Task<List<string>> GetAdminUserIds()
+    {
+        var admins = await UserManager.GetUsersInRoleAsync("Administrator");
+        return admins.Select(a => a.Id).ToList();
+    }
+
+    private async Task LoadAccessiblePlaylists()
+    {
+        var adminIds = await GetAdminUserIds();
+
+        accessiblePlaylists = await context.Playlist
+            .Where(p => p.UserId == currentUserId || adminIds.Contains(p.UserId))
+            .OrderByDescending(p => p.DateCreated)
+            .ToListAsync();
+    }
+
+    private async Task LoadPlaylistSongMap()
+    {
+        playlistSongMap.Clear();
+
+        if (accessiblePlaylists.Count == 0)
+            return;
+
+        var playlistIds = accessiblePlaylists.Select(p => p.Id).ToList();
+
+        var links = await context.PlaylistSong
+            .Where(ps => playlistIds.Contains(ps.PlaylistId))
+            .Select(ps => new { ps.PlaylistId, ps.SongId })
+            .ToListAsync();
+
+        foreach (var l in links)
+        {
+            if (!playlistSongMap.TryGetValue(l.PlaylistId, out var set))
+            {
+                set = new HashSet<int>();
+                playlistSongMap[l.PlaylistId] = set;
+            }
+            set.Add(l.SongId);
+        }
+    }
+
+    private async Task AddSongToPlaylist(int playlistId)
+    {
+        if (selectedSong == null)
+            return;
+
+        var songId = selectedSong.Id;
+
+        var already = await context.PlaylistSong.AnyAsync(ps => ps.PlaylistId == playlistId && ps.SongId == songId);
+        if (already)
+        {
+            ShowToast("Already in playlist");
+            return;
+        }
+
+        var link = new PlaylistSong
+        {
+            PlaylistId = playlistId,
+            SongId = songId,
+            DateCreated = DateTime.Now,
+            DateUpdated = DateTime.Now,
+            CreatedBy = currentUserId,
+            UpdatedBy = currentUserId
+        };
+
+        context.PlaylistSong.Add(link);
+        await context.SaveChangesAsync();
+
+        if (!playlistSongMap.TryGetValue(playlistId, out var set))
+        {
+            set = new HashSet<int>();
+            playlistSongMap[playlistId] = set;
+        }
+        set.Add(songId);
+
+        ShowToast("Added to playlist");
+        StateHasChanged();
+    }
+
+    private async Task CreatePlaylistAndAddSong()
+    {
+        if (selectedSong == null)
+            return;
+
+        if (string.IsNullOrWhiteSpace(newPlaylistName))
+        {
+            ShowToast("Playlist name is required");
+            return;
+        }
+
+        var playlist = new Playlist
+        {
+            Name = newPlaylistName.Trim(),
+            Description = string.IsNullOrWhiteSpace(newPlaylistDescription) ? null : newPlaylistDescription.Trim(),
+            Cover_Image = null,
+            UserId = currentUserId,
+            DateCreated = DateTime.Now,
+            DateUpdated = DateTime.Now,
+            CreatedBy = currentUserId,
+            UpdatedBy = currentUserId
+        };
+
+        context.Playlist.Add(playlist);
+        await context.SaveChangesAsync();
+
+        accessiblePlaylists.Insert(0, playlist);
+
+        await AddSongToPlaylist(playlist.Id);
+
+        showNewPlaylistBox = false;
+        newPlaylistName = "";
+        newPlaylistDescription = "";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (context != null)
+        {
+            await context.DisposeAsync();
+        }
+    }
 }

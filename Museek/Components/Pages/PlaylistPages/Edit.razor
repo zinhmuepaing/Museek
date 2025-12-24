@@ -1,124 +1,207 @@
 ﻿@page "/playlists/edit"
+@rendermode InteractiveServer
 @using Microsoft.EntityFrameworkCore
+@using System.Security.Claims
 @using Museek.Domain
-@inject IDbContextFactory<Museek.Data.MuseekContext> DbFactory
+@using Museek.Data
+@using Microsoft.AspNetCore.Components.Forms
+@inject IDbContextFactory<MuseekContext> DbFactory
 @inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@attribute [Authorize]
 
-<PageTitle>Edit</PageTitle>
+<PageTitle>Edit Playlist</PageTitle>
 
-<h1>Edit</h1>
-
-<h2>Playlist</h2>
-<hr />
-@if (Playlist is null)
+@if (Playlist == null)
 {
-    <p><em>Loading...</em></p>
+    <div class="form-page">
+        <p><em>Loading...</em></p>
+    </div>
 }
 else
 {
-    <div class="row">
-        <div class="col-md-4">
-            <EditForm method="post" Model="Playlist" OnValidSubmit="UpdatePlaylist" FormName="edit" Enhance>
-                <DataAnnotationsValidator />
-                <ValidationSummary role="alert" />
-                <input type="hidden" name="Playlist.Id" value="@Playlist.Id" />
-                <div class="mb-3">
-                    <label for="name" class="form-label">Name:</label>
-                    <InputText id="name" @bind-Value="Playlist.Name" class="form-control" />
-                    <ValidationMessage For="() => Playlist.Name" class="text-danger" />
+    <div class="form-page">
+        <h1 class="page-title">Edit Playlist</h1>
+
+        <EditForm Model="Playlist" OnValidSubmit="UpdatePlaylist">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" />
+
+            <div class="field">
+                <label>Name</label>
+                <InputText class="input" @bind-Value="Playlist.Name" />
+            </div>
+
+            <div class="field">
+                <label>Description</label>
+                <InputText class="input" @bind-Value="Playlist.Description" />
+            </div>
+
+            <div class="field">
+                <label>Cover Image</label>
+
+                <div class="cover-row">
+                    <img class="cover-preview"
+                         src="@CoverPreviewSrc"
+                         alt="Cover preview" />
+
+                    <div class="cover-actions">
+                        <InputFile OnChange="OnCoverSelected" accept="image/*" />
+                        <div class="hint">PNG, JPG, WEBP. Max 5 MB.</div>
+
+                        @if (!string.IsNullOrWhiteSpace(uploadError))
+                        {
+                            <div class="error">@uploadError</div>
+                        }
+                    </div>
                 </div>
-                <div class="mb-3">
-                    <label for="description" class="form-label">Description:</label>
-                    <InputText id="description" @bind-Value="Playlist.Description" class="form-control" />
-                    <ValidationMessage For="() => Playlist.Description" class="text-danger" />
-                </div>
-                <div class="mb-3">
-                    <label for="coverimage" class="form-label">Cover Image:</label>
-                    <InputText id="coverimage" @bind-Value="Playlist.Cover_Image" class="form-control" />
-                    <ValidationMessage For="() => Playlist.Cover_Image" class="text-danger" />
-                </div>
-                <div class="mb-3">
-                    <label for="userid" class="form-label">UserId:</label>
-                    <InputNumber id="userid" @bind-Value="Playlist.UserId" class="form-control" />
-                    <ValidationMessage For="() => Playlist.UserId" class="text-danger" />
-                </div>
-                <div class="mb-3">
-                    <label for="datecreated" class="form-label">DateCreated:</label>
-                    <InputDate id="datecreated" @bind-Value="Playlist.DateCreated" class="form-control" />
-                    <ValidationMessage For="() => Playlist.DateCreated" class="text-danger" />
-                </div>
-                <div class="mb-3">
-                    <label for="dateupdated" class="form-label">DateUpdated:</label>
-                    <InputDate id="dateupdated" @bind-Value="Playlist.DateUpdated" class="form-control" />
-                    <ValidationMessage For="() => Playlist.DateUpdated" class="text-danger" />
-                </div>
-                <div class="mb-3">
-                    <label for="createdby" class="form-label">CreatedBy:</label>
-                    <InputText id="createdby" @bind-Value="Playlist.CreatedBy" class="form-control" />
-                    <ValidationMessage For="() => Playlist.CreatedBy" class="text-danger" />
-                </div>
-                <div class="mb-3">
-                    <label for="updatedby" class="form-label">UpdatedBy:</label>
-                    <InputText id="updatedby" @bind-Value="Playlist.UpdatedBy" class="form-control" />
-                    <ValidationMessage For="() => Playlist.UpdatedBy" class="text-danger" />
-                </div>
-                <button type="submit" class="btn btn-primary">Save</button>
-            </EditForm>
-        </div>
+            </div>
+
+            <div class="actions">
+                <button class="primary" type="submit">Save</button>
+                <a class="secondary" href="@($"/playlists/details?id={Playlist.Id}")">Cancel</a>
+            </div>
+        </EditForm>
     </div>
 }
 
-<div>
-    <a href="/playlists">Back to List</a>
-</div>
-
 @code {
-    [SupplyParameterFromQuery]
-    private int Id { get; set; }
+    private MuseekContext context = default!;
+    private string currentUserId = string.Empty;
 
-    [SupplyParameterFromForm]
-    private Playlist? Playlist { get; set; }
+    [SupplyParameterFromQuery] private int Id { get; set; }
+    [SupplyParameterFromForm] private Playlist? Playlist { get; set; }
+
+    private IBrowserFile? selectedCoverFile;
+    private string? coverDataUrl;
+    private string uploadError = "";
+
+    private string CoverPreviewSrc =>
+        !string.IsNullOrWhiteSpace(coverDataUrl) ? coverDataUrl :
+        !string.IsNullOrWhiteSpace(Playlist?.Cover_Image) ? Playlist!.Cover_Image! :
+        "images/default-cover.png";
 
     protected override async Task OnInitializedAsync()
     {
-        using var context = DbFactory.CreateDbContext();
-        Playlist ??= await context.Playlist.FirstOrDefaultAsync(m => m.Id == Id);
+        context = DbFactory.CreateDbContext();
 
-        if (Playlist is null)
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        currentUserId =
+            user.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? user.FindFirst("userId")?.Value
+            ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(currentUserId))
+        {
+            NavigationManager.NavigateTo("Account/Login");
+            return;
+        }
+
+        Playlist ??= await context.Playlist.FirstOrDefaultAsync(p => p.Id == Id);
+        if (Playlist == null)
         {
             NavigationManager.NavigateTo("notfound");
+            return;
+        }
+
+        var isAdmin = user.IsInRole("Administrator");
+        var canEdit = isAdmin || Playlist.UserId == currentUserId;
+        if (!canEdit)
+        {
+            NavigationManager.NavigateTo("/userlibrary");
+            return;
         }
     }
 
-    // To protect from overposting attacks, enable the specific properties you want to bind to.
-    // For more information, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
+    private async Task OnCoverSelected(InputFileChangeEventArgs e)
+    {
+        uploadError = "";
+        selectedCoverFile = null;
+        coverDataUrl = null;
+
+        if (Playlist == null)
+            return;
+
+        var file = e.File;
+        if (file == null)
+            return;
+
+        const long maxBytes = 5 * 1024 * 1024;
+
+        if (!file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+        {
+            uploadError = "Please choose an image file.";
+            return;
+        }
+
+        if (file.Size > maxBytes)
+        {
+            uploadError = "Image is too large. Max 5 MB.";
+            return;
+        }
+
+        selectedCoverFile = file;
+
+        // Preview immediately (data URL)
+        using var stream = file.OpenReadStream(maxAllowedSize: maxBytes);
+        using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms);
+        var base64 = Convert.ToBase64String(ms.ToArray());
+        coverDataUrl = $"data:{file.ContentType};base64,{base64}";
+    }
+
     private async Task UpdatePlaylist()
     {
-        using var context = DbFactory.CreateDbContext();
-        context.Attach(Playlist!).State = EntityState.Modified;
+        if (Playlist == null)
+            return;
 
-        try
+        using var db = DbFactory.CreateDbContext();
+
+        // If a new cover is selected, save into wwwroot/images/playlists and store path in Cover_Image.
+        if (selectedCoverFile != null)
         {
-            await context.SaveChangesAsync();
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            if (!PlaylistExists(Playlist!.Id))
+            var savedPath = await SaveCoverToWwwRootAsync(selectedCoverFile);
+            if (!string.IsNullOrWhiteSpace(savedPath))
             {
-                NavigationManager.NavigateTo("notfound");
-            }
-            else
-            {
-                throw;
+                Playlist.Cover_Image = savedPath;
             }
         }
 
-        NavigationManager.NavigateTo("/playlists");
+        Playlist.DateUpdated = DateTime.Now;
+        Playlist.UpdatedBy = currentUserId;
+
+        db.Attach(Playlist).State = EntityState.Modified;
+        await db.SaveChangesAsync();
+
+        NavigationManager.NavigateTo($"/playlists/details?id={Playlist.Id}");
     }
 
-    private bool PlaylistExists(int id)
+    private static async Task<string> SaveCoverToWwwRootAsync(IBrowserFile file)
     {
-        using var context = DbFactory.CreateDbContext();
-        return context.Playlist.Any(e => e.Id == id);
+        // Writes to: wwwroot/images/playlists/<guid>.<ext>
+        // Stores relative URL: images/playlists/<guid>.<ext>
+        var ext = Path.GetExtension(file.Name);
+        if (string.IsNullOrWhiteSpace(ext))
+            ext = ".png";
+
+        var safeExt = ext.ToLowerInvariant();
+        var allowed = new HashSet<string> { ".png", ".jpg", ".jpeg", ".webp" };
+        if (!allowed.Contains(safeExt))
+            safeExt = ".png";
+
+        var fileName = $"{Guid.NewGuid():N}{safeExt}";
+        var folder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "playlists");
+        Directory.CreateDirectory(folder);
+
+        var absolutePath = Path.Combine(folder, fileName);
+
+        const long maxBytes = 5 * 1024 * 1024;
+        using var stream = file.OpenReadStream(maxAllowedSize: maxBytes);
+        using var fs = File.Create(absolutePath);
+        await stream.CopyToAsync(fs);
+
+        return $"images/playlists/{fileName}";
     }
 }

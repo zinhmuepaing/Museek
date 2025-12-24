@@ -1,10 +1,11 @@
-﻿using Museek.Components;
+﻿using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Museek.Data;
-using Microsoft.AspNetCore.Components.Authorization;
-using Microsoft.AspNetCore.Identity;
+using Museek.Components;
 using Museek.Components.Account;
+using Museek.Data;
+
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContextFactory<MuseekContext>(options =>
@@ -42,6 +43,8 @@ builder.Services.AddIdentityCore<MuseekUser>(options => options.SignIn.RequireCo
 builder.Services.AddSingleton<IEmailSender<MuseekUser>, IdentityNoOpEmailSender>();
 builder.Services.AddControllers();
 
+
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -61,8 +64,8 @@ app.UseAntiforgery();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
-app.MapAdditionalIdentityEndpoints(); ;
-
-app.Run();
+app.MapAdditionalIdentityEndpoints();
 
 app.MapDefaultControllerRoute();
+
+app.Run();

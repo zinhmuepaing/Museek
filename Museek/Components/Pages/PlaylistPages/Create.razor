@@ -1,125 +1,86 @@
-﻿@page "/playlists/create"
+﻿// FILE: Pages/Playlists/Create.razor
+@page "/playlists/create"
+@rendermode InteractiveServer
 @using Microsoft.EntityFrameworkCore
-@using Museek.Domain
 @using Microsoft.AspNetCore.Identity
 @using System.Security.Claims
-@inject IDbContextFactory<Museek.Data.MuseekContext> DbFactory
+@using Museek.Domain
+@using Museek.Data
+@inject IDbContextFactory<MuseekContext> DbFactory
 @inject NavigationManager NavigationManager
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject UserManager<IdentityUser> UserManager
+@attribute [Authorize]
 
 <PageTitle>Create Playlist</PageTitle>
 
-<h1>Create</h1>
-<h2>Playlist</h2>
-<hr />
+<div class="form-page">
+    <h1 class="page-title">New Playlist</h1>
 
-<div class="row">
-    <div class="col-md-4">
+    <EditForm Model="Playlist" OnValidSubmit="AddPlaylist">
+        <DataAnnotationsValidator />
+        <ValidationSummary class="text-danger" />
 
-        <EditForm method="post" Model="Playlist" OnValidSubmit="AddPlaylist" FormName="create" Enhance>
-            <DataAnnotationsValidator />
-            <ValidationSummary class="text-danger" />
+        <div class="field">
+            <label>Name</label>
+            <InputText class="input" @bind-Value="Playlist.Name" />
+        </div>
 
-            <div class="mb-3">
-                <label class="form-label">Name:</label>
-                <InputText @bind-Value="Playlist.Name" class="form-control" />
-            </div>
+        <div class="field">
+            <label>Description</label>
+            <InputText class="input" @bind-Value="Playlist.Description" />
+        </div>
 
-            <div class="mb-3">
-                <label class="form-label">Description:</label>
-                <InputText @bind-Value="Playlist.Description" class="form-control" />
-            </div>
+        <div class="field">
+            <label>Cover Image (optional)</label>
+            <InputText class="input" @bind-Value="Playlist.Cover_Image" />
+        </div>
 
-            <div class="mb-3">
-                <label class="form-label">Cover Image:</label>
-                <InputText @bind-Value="Playlist.Cover_Image" class="form-control" />
-            </div>
-
-            <!-- UserId dropdown now uses ASP.NET Identity -->
-            <div class="mb-3">
-                <label class="form-label">User:</label>
-                <InputSelect @bind-Value="Playlist.UserId" class="form-control">
-                    <option value="">-- Select User --</option>
-
-                    @foreach (var u in IdentityUsers)
-                    {
-                        <option value="@u.Id">@u.Email</option>
-                    }
-                </InputSelect>
-                <ValidationMessage For="() => Playlist.UserId" class="text-danger" />
-            </div>
-
-            <!-- Hidden system fields -->
-            <div class="mb-3" hidden>
-                <label>DateCreated:</label>
-                <InputDate @bind-Value="Playlist.DateCreated" class="form-control" />
-            </div>
-
-            <div class="mb-3" hidden>
-                <label>DateUpdated:</label>
-                <InputDate @bind-Value="Playlist.DateUpdated" class="form-control" />
-            </div>
-
-            <div class="mb-3" hidden>
-                <label>CreatedBy:</label>
-                <InputText @bind-Value="Playlist.CreatedBy" class="form-control" />
-            </div>
-
-            <div class="mb-3" hidden>
-                <label>UpdatedBy:</label>
-                <InputText @bind-Value="Playlist.UpdatedBy" class="form-control" />
-            </div>
-
-            <button type="submit" class="btn btn-primary">Create</button>
-        </EditForm>
-
-    </div>
-</div>
-
-<div>
-    <a href="/playlists">Back to List</a>
+        <div class="actions">
+            <button class="primary" type="submit">Create</button>
+            <a class="secondary" href="/library">Cancel</a>
+        </div>
+    </EditForm>
 </div>
 
 @code {
-    [SupplyParameterFromForm]
+    private MuseekContext context = default!;
+    private string currentUserId = string.Empty;
+
     private Playlist Playlist { get; set; } = new();
 
-    private MuseekContext context = default!;
-    private List<IdentityUser> IdentityUsers = new();
-
-    private string userId = "System";
-    private bool isAdmin = false;
-
-    protected override async void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        // Authentication state
+        context = DbFactory.CreateDbContext();
+
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         var user = authState.User;
 
-        // Correct ASP.NET Identity user Id claim
-        userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "System";
-        isAdmin = user.IsInRole("Administrator");
+        currentUserId =
+            user.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? user.FindFirst("userId")?.Value
+            ?? string.Empty;
 
-        // Load users from Identity instead of your deleted User entity
-        IdentityUsers = UserManager.Users.ToList();
-
-        context = DbFactory.CreateDbContext();
+        if (string.IsNullOrWhiteSpace(currentUserId))
+        {
+            NavigationManager.NavigateTo("Account/Login");
+            return;
+        }
     }
 
     private async Task AddPlaylist()
     {
         using var db = DbFactory.CreateDbContext();
 
-        Playlist.CreatedBy = userId;
-        Playlist.UpdatedBy = userId;
-
+        Playlist.UserId = currentUserId;
+        Playlist.CreatedBy = currentUserId;
+        Playlist.UpdatedBy = currentUserId;
         Playlist.DateCreated = DateTime.Now;
         Playlist.DateUpdated = DateTime.Now;
 
         db.Playlist.Add(Playlist);
         await db.SaveChangesAsync();
 
-        NavigationManager.NavigateTo("/playlists");
+        NavigationManager.NavigateTo("/library");
     }
 }

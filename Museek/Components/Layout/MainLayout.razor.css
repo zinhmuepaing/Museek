@@ -5,6 +5,7 @@
     background-color: #0f0f0f;
     color: #fff;
     font-family: "Poppins", sans-serif;
+    padding-bottom: 120px; /* Add padding to prevent content from being hidden behind player */
 }
 
 /* Navbar container */
@@ -49,3 +50,10 @@
         .footer-links a:hover {
             color: #fff;
         }
+
+/* Responsive adjustments for mobile */
+@media (max-width: 768px) {
+    .page {
+        padding-bottom: 180px; /* More space on mobile since player takes more height */
+    }
+}
