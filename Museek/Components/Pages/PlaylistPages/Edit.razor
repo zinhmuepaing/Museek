@@ -79,7 +79,7 @@ else
     private string CoverPreviewSrc =>
         !string.IsNullOrWhiteSpace(coverDataUrl) ? coverDataUrl :
         !string.IsNullOrWhiteSpace(Playlist?.Cover_Image) ? Playlist!.Cover_Image! :
-        "images/default-cover.png";
+        "images/default-cover.jpg";
 
     protected override async Task OnInitializedAsync()
     {

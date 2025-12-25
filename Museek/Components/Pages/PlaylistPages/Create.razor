@@ -1,15 +1,13 @@
-﻿// FILE: Pages/Playlists/Create.razor
-@page "/playlists/create"
+﻿@page "/playlists/create"
 @rendermode InteractiveServer
 @using Microsoft.EntityFrameworkCore
-@using Microsoft.AspNetCore.Identity
 @using System.Security.Claims
 @using Museek.Domain
 @using Museek.Data
+@using Microsoft.AspNetCore.Components.Forms
 @inject IDbContextFactory<MuseekContext> DbFactory
 @inject NavigationManager NavigationManager
 @inject AuthenticationStateProvider AuthenticationStateProvider
-@inject UserManager<IdentityUser> UserManager
 @attribute [Authorize]
 
 <PageTitle>Create Playlist</PageTitle>
@@ -33,12 +31,29 @@
 
         <div class="field">
             <label>Cover Image (optional)</label>
-            <InputText class="input" @bind-Value="Playlist.Cover_Image" />
+
+            <div class="cover-card">
+                <div class="cover-thumb-wrap">
+                    <img class="cover-thumb"
+                         src="@CoverPreviewSrc"
+                         alt="Cover preview" />
+                </div>
+
+                <div class="cover-right">
+                    <InputFile OnChange="OnCoverSelected" accept="image/*" />
+                    <div class="hint">PNG, JPG, WEBP. Max 5 MB.</div>
+
+                    @if (!string.IsNullOrWhiteSpace(uploadError))
+                    {
+                        <div class="error">@uploadError</div>
+                    }
+                </div>
+            </div>
         </div>
 
         <div class="actions">
             <button class="primary" type="submit">Create</button>
-            <a class="secondary" href="/library">Cancel</a>
+            <a class="secondary" href="/userlibrary">Cancel</a>
         </div>
     </EditForm>
 </div>
@@ -48,6 +63,14 @@
     private string currentUserId = string.Empty;
 
     private Playlist Playlist { get; set; } = new();
+
+    private IBrowserFile? selectedCoverFile;
+    private string? coverDataUrl;
+    private string uploadError = "";
+
+    private string CoverPreviewSrc =>
+        !string.IsNullOrWhiteSpace(coverDataUrl) ? coverDataUrl :
+        "images/default-cover.jpg";
 
     protected override async Task OnInitializedAsync()
     {
@@ -68,9 +91,51 @@
         }
     }
 
+    private async Task OnCoverSelected(InputFileChangeEventArgs e)
+    {
+        uploadError = "";
+        selectedCoverFile = null;
+        coverDataUrl = null;
+
+        var file = e.File;
+        if (file == null)
+            return;
+
+        const long maxBytes = 5 * 1024 * 1024;
+
+        if (!file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+        {
+            uploadError = "Please choose an image file.";
+            return;
+        }
+
+        if (file.Size > maxBytes)
+        {
+            uploadError = "Image is too large. Max 5 MB.";
+            return;
+        }
+
+        selectedCoverFile = file;
+
+        using var stream = file.OpenReadStream(maxAllowedSize: maxBytes);
+        using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms);
+        var base64 = Convert.ToBase64String(ms.ToArray());
+        coverDataUrl = $"data:{file.ContentType};base64,{base64}";
+    }
+
     private async Task AddPlaylist()
     {
         using var db = DbFactory.CreateDbContext();
+
+        if (selectedCoverFile != null)
+        {
+            var savedPath = await SaveCoverToWwwRootAsync(selectedCoverFile);
+            if (!string.IsNullOrWhiteSpace(savedPath))
+            {
+                Playlist.Cover_Image = savedPath;
+            }
+        }
 
         Playlist.UserId = currentUserId;
         Playlist.CreatedBy = currentUserId;
@@ -81,6 +146,31 @@
         db.Playlist.Add(Playlist);
         await db.SaveChangesAsync();
 
-        NavigationManager.NavigateTo("/library");
+        NavigationManager.NavigateTo("/userlibrary");
+    }
+
+    private static async Task<string> SaveCoverToWwwRootAsync(IBrowserFile file)
+    {
+        var ext = Path.GetExtension(file.Name);
+        if (string.IsNullOrWhiteSpace(ext))
+            ext = ".png";
+
+        var safeExt = ext.ToLowerInvariant();
+        var allowed = new HashSet<string> { ".png", ".jpg", ".jpeg", ".webp" };
+        if (!allowed.Contains(safeExt))
+            safeExt = ".png";
+
+        var fileName = $"{Guid.NewGuid():N}{safeExt}";
+        var folder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "playlists");
+        Directory.CreateDirectory(folder);
+
+        var absolutePath = Path.Combine(folder, fileName);
+
+        const long maxBytes = 5 * 1024 * 1024;
+        using var stream = file.OpenReadStream(maxAllowedSize: maxBytes);
+        using var fs = File.Create(absolutePath);
+        await stream.CopyToAsync(fs);
+
+        return $"images/playlists/{fileName}";
     }
 }

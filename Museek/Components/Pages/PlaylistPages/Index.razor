@@ -43,7 +43,7 @@
             @foreach (var p in FilteredPlaylists)
             {
                 <a class="playlist-card" href="@($"/playlists/details?id={p.Id}")">
-                    <img src="@(!string.IsNullOrWhiteSpace(p.Cover_Image) ? p.Cover_Image : "images/default-cover.png")"
+                    <img src="@(!string.IsNullOrWhiteSpace(p.Cover_Image) ? p.Cover_Image : "images/default-cover.jpg")"
                          class="playlist-img" />
 
                     <div class="playlist-meta">

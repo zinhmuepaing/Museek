@@ -102,7 +102,10 @@
             <div class="player-controls">
                 <input type="range" id="progressBar" min="0" max="100" value="@progress" @oninput="@SeekAudio" />
                 <div class="control-buttons">
-                    <img src="images/shuffleButton.png" alt="Shuffle" class="control-icon" @onclick="@ToggleShuffle" />
+                    <img src="@(shuffleOn ? "images/shuffle.png" : "images/shuffleButton.png")"
+                         alt="Shuffle"
+                         class="control-icon"
+                         @onclick="@ToggleShuffle" />
                     <img src="images/prevButton.png" alt="Previous" class="control-icon" @onclick="@PreviousSong" />
                     <img src="@(isPlaying ? "images/pauseButton.png" : "images/playButton.png")"
                          id="playPause"
@@ -110,7 +113,7 @@
                          class="control-icon main"
                          @onclick="@TogglePlayPause" />
                     <img src="images/nextButton.png" alt="Next" class="control-icon" @onclick="@NextSong" />
-                    <img src="images/repeatButton.png" alt="Repeat" class="control-icon" @onclick="@ToggleRepeat" />
+                    <img src="@GetRepeatIcon()" alt="Repeat" class="control-icon" @onclick="@ToggleRepeat" />
                 </div>
                 <div class="time-display">
                     <span id="currentTime">@currentTime</span>
@@ -154,12 +157,16 @@
     // Playback state
     private List<PlayerSong> playbackQueue = new();
     private int currentIndex = -1;
+
     private bool shuffleOn = false;
-    private bool repeatOn = false;
+
+    // repeatMode: 0 off, 1 repeat all, 2 repeat one
+    private int repeatMode = 0;
+
     private readonly Random rng = new();
     private Stack<int> shuffleHistory = new();
 
-    private DotNetObjectReference<Museek.Components.Pages.UserSongPages.Index>? dotNetRef;
+    private DotNetObjectReference<object>? dotNetRef;
     private bool jsWired = false;
 
     protected override async Task OnInitializedAsync()
@@ -195,7 +202,6 @@
             }
         ).ToListAsync();
 
-        // Queue follows current filtered order at load time
         playbackQueue = savedSongs.Select(r => new PlayerSong
         {
             Title = r.Song.Title ?? "Unknown Title",
@@ -211,10 +217,20 @@
         {
             await JSRuntime.InvokeVoidAsync("initializeAudioPlayer");
 
-            dotNetRef = DotNetObjectReference.Create(this);
-            await JSRuntime.InvokeVoidAsync("museekPlayer.wireEnded", dotNetRef);
+            dotNetRef = DotNetObjectReference.Create<object>(this);
             jsWired = true;
+
+            await EnsureEndedWiredAndRepeatApplied();
         }
+    }
+
+    private async Task EnsureEndedWiredAndRepeatApplied()
+    {
+        if (!jsWired || dotNetRef == null)
+            return;
+
+        await JSRuntime.InvokeVoidAsync("museekPlayer.wireEnded", dotNetRef);
+        await JSRuntime.InvokeVoidAsync("museekPlayer.setLoop", repeatMode == 2);
     }
 
     private IEnumerable<SavedSongRow> FilteredSavedSongs =>
@@ -226,8 +242,8 @@
 
     private async Task PlaySavedSong(SavedSongRow row)
     {
-        // Rebuild queue to match current visible order
         var ordered = FilteredSavedSongs.ToList();
+
         playbackQueue = ordered.Select(r => new PlayerSong
         {
             Title = r.Song.Title ?? "Unknown Title",
@@ -265,11 +281,7 @@
         await Task.Delay(50);
 
         await JSRuntime.InvokeVoidAsync("initializeAudioPlayer");
-
-        if (jsWired)
-        {
-            await JSRuntime.InvokeVoidAsync("museekPlayer.setLoop", repeatOn);
-        }
+        await EnsureEndedWiredAndRepeatApplied();
 
         var encodedPath = GetEncodedAudioPath(currentSong.AudioPath);
         await JSRuntime.InvokeVoidAsync("loadAudio", encodedPath);
@@ -329,8 +341,6 @@
                 await PlayIndex(prev, forcePlay: true);
                 return;
             }
-
-            // no history, fall back to normal previous
         }
 
         var nextIndex = currentIndex - 1;
@@ -344,12 +354,6 @@
     {
         if (playbackQueue.Count == 0 || currentIndex < 0)
             return;
-
-        if (repeatOn)
-        {
-            await PlayIndex(currentIndex, forcePlay: true);
-            return;
-        }
 
         int nextIndex;
 
@@ -406,12 +410,21 @@
 
     private async Task ToggleRepeat()
     {
-        repeatOn = !repeatOn;
+        repeatMode++;
+        if (repeatMode > 2)
+            repeatMode = 0;
 
         if (jsWired)
         {
-            await JSRuntime.InvokeVoidAsync("museekPlayer.setLoop", repeatOn);
+            await JSRuntime.InvokeVoidAsync("museekPlayer.setLoop", repeatMode == 2);
         }
+    }
+
+    private string GetRepeatIcon()
+    {
+        if (repeatMode == 1) return "images/repeat.png";
+        if (repeatMode == 2) return "images/repeat1.png";
+        return "images/repeatOff.png";
     }
 
     private async Task OnSongKeyDown(KeyboardEventArgs e, SavedSongRow row)
@@ -428,13 +441,37 @@
         if (!showPlayer)
             return;
 
-        if (repeatOn)
+        if (repeatMode == 2)
         {
-            await PlayIndex(currentIndex, forcePlay: true);
+            await JSRuntime.InvokeVoidAsync("museekPlayer.restart");
+            isPlaying = true;
             return;
         }
 
-        await NextSong();
+        if (playbackQueue.Count == 0 || currentIndex < 0)
+            return;
+
+        if (shuffleOn)
+        {
+            await NextSong();
+            return;
+        }
+
+        var nextIndex = currentIndex + 1;
+        if (nextIndex >= playbackQueue.Count)
+        {
+            if (repeatMode == 1)
+            {
+                nextIndex = 0;
+            }
+            else
+            {
+                await ClosePlayer();
+                return;
+            }
+        }
+
+        await PlayIndex(nextIndex, forcePlay: true);
     }
 
     private static string GetEncodedAudioPath(string path)
@@ -499,6 +536,14 @@
                 const audio = document.getElementById("audioPlayer");
                 if (!audio) return;
                 audio.loop = !!on;
+            } catch { }
+        },
+        restart: function () {
+            try {
+                const audio = document.getElementById("audioPlayer");
+                if (!audio) return;
+                audio.currentTime = 0;
+                audio.play();
             } catch { }
         }
     };
