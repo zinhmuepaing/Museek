@@ -4,7 +4,6 @@
 @inject IDbContextFactory<Museek.Data.MuseekContext> DbFactory
 @inject NavigationManager NavigationManager
 
-
 <PageTitle>Delete</PageTitle>
 
 <h1>Delete</h1>
@@ -17,7 +16,18 @@
     {
         <p><em>Loading...</em></p>
     }
-    else {
+    else
+    {
+        <!-- Cover Art preview (playlist-card style, bigger) -->
+        <a class="playlist-card" href="javascript:void(0)">
+            <img src="@GetImageSrc(song.Cover_Art)"
+                 class="playlist-img"
+                 alt="Cover Art" />
+            <div class="playlist-meta">
+                
+            </div>
+        </a>
+
         <dl class="row">
             <dt class="col-sm-2">Title</dt>
             <dd class="col-sm-10">@song.Title</dd>
@@ -43,19 +53,19 @@
             <dt class="col-sm-2">ArtistId</dt>
             <dd class="col-sm-10">@song.ArtistId</dd>
         </dl>
-        <dl class="row">
+        <dl class="row" hidden>
             <dt class="col-sm-2">DateCreated</dt>
             <dd class="col-sm-10">@song.DateCreated</dd>
         </dl>
-        <dl class="row">
+        <dl class="row" hidden>
             <dt class="col-sm-2">DateUpdated</dt>
             <dd class="col-sm-10">@song.DateUpdated</dd>
         </dl>
-        <dl class="row">
+        <dl class="row" hidden>
             <dt class="col-sm-2">CreatedBy</dt>
             <dd class="col-sm-10">@song.CreatedBy</dd>
         </dl>
-        <dl class="row">
+        <dl class="row" hidden>
             <dt class="col-sm-2">UpdatedBy</dt>
             <dd class="col-sm-10">@song.UpdatedBy</dd>
         </dl>
@@ -65,6 +75,58 @@
         </EditForm>
     }
 </div>
+
+<style>
+    .playlist-card {
+        text-decoration: none;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        border-radius: 16px;
+        padding: 14px;
+        color: white;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-bottom: 16px;
+        width: 100%;
+        max-width: 520px;
+    }
+
+        .playlist-card:hover {
+            border-color: rgba(255, 255, 255, 0.18);
+        }
+
+    .playlist-img {
+        width: 100%;
+        height: 260px;
+        object-fit: cover;
+        border-radius: 12px;
+        display: block;
+    }
+
+    .playlist-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+    }
+
+    .playlist-title {
+        font-weight: 800;
+        font-size: 18px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .playlist-desc {
+        color: rgba(255, 255, 255, 0.65);
+        font-size: 14px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+</style>
 
 @code {
     private Song? song;
@@ -89,5 +151,19 @@
         context.Song.Remove(song!);
         await context.SaveChangesAsync();
         NavigationManager.NavigateTo("/songs");
+    }
+
+    private static string GetImageSrc(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "images/default-cover.jpg";
+        value = value.Trim();
+
+        if (value.StartsWith("//")) return "https:" + value;
+        if (value.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+            return "https://" + value.Substring("http://".Length);
+        if (value.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            return value;
+
+        return "/" + value.TrimStart('/');
     }
 }

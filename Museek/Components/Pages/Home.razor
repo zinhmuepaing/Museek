@@ -1,16 +1,52 @@
 ﻿@page "/home"
 @rendermode InteractiveServer
 @using Microsoft.AspNetCore.Components.Web
+@using Microsoft.EntityFrameworkCore
 @using Microsoft.JSInterop
+@using Museek.Data
 @inject IJSRuntime JSRuntime
+@inject IDbContextFactory<MuseekContext> DbFactory
 
 <PageTitle>Museek | Home</PageTitle>
 
 <!-- Search Bar -->
 <section class="search-section">
-    <div class="search-bar">
-        <img src="images/search.png" alt="Search" class="search-icon" />
-        <input type="text" @bind="searchQuery" @onkeyup="@HandleSearch" placeholder="Search songs, artists, or albums..." />
+    <div class="search-wrap">
+        <div class="search-bar">
+            <img src="images/search.png" alt="Search" class="search-icon" />
+            <input type="text"
+                   @bind="searchQuery"
+                   @bind:event="oninput"
+                   @onkeyup="@HandleSearch"
+                   placeholder="Search songs, artists, or albums..." />
+        </div>
+
+        @if (showSearchResults)
+        {
+            <div class="search-results">
+                @if (isSearching)
+                {
+                    <div class="search-empty">Searching...</div>
+                }
+                else if (searchResults.Count == 0)
+                {
+                    <div class="search-empty">No songs found.</div>
+                }
+                else
+                {
+                    @foreach (var r in searchResults)
+                    {
+                        <button type="button" class="search-item" @onclick="@(() => PlayFromSearch(r))">
+                            <img src="@GetImageSrc(r.CoverArt)" alt="@r.Title" class="search-item-img" />
+                            <div class="search-item-meta">
+                                <div class="search-item-title">@r.Title</div>
+                                <div class="search-item-sub">Song · @r.ArtistName</div>
+                            </div>
+                        </button>
+                    }
+                }
+            </div>
+        }
     </div>
 </section>
 
@@ -21,7 +57,6 @@
         <section class="music-section">
             <h2>Popular Songs</h2>
 
-            <!-- Same cards, now horizontally scrollable -->
             <div class="row-scroll">
                 <div class="music-grid">
                     @foreach (var song in popularSongs)
@@ -39,7 +74,6 @@
         <section class="music-section">
             <h2>Trending Artists</h2>
 
-            <!-- Same cards, now horizontally scrollable -->
             <div class="row-scroll">
                 <div class="artist-grid">
                     @foreach (var artist in trendingArtists)
@@ -56,7 +90,6 @@
         <section class="music-section">
             <h2>New Releases</h2>
 
-            <!-- Same cards, now horizontally scrollable -->
             <div class="row-scroll">
                 <div class="music-grid">
                     @foreach (var release in newReleases)
@@ -74,7 +107,6 @@
 
     <!-- Right Side (Video and Player) -->
     <aside class="right-content">
-        <!-- Random Video Section -->
         <section class="video-box">
             <div class="video-frame">
                 <video autoplay muted loop playsinline>
@@ -85,7 +117,6 @@
             </div>
         </section>
 
-        <!-- Music Player Section (only show when a song is clicked) -->
         @if (showPlayer)
         {
             <section class="player-box">
@@ -126,7 +157,6 @@
                     <input type="range" id="volumeBar" min="0" max="100" value="@volume" @oninput="@ChangeVolume" />
                 </div>
 
-                <!-- Hidden audio element -->
                 <audio id="audioPlayer" src="@GetEncodedAudioPath(currentSong.AudioPath)"></audio>
             </section>
         }
@@ -134,7 +164,26 @@
 </div>
 
 @code {
-    private string searchQuery = "";
+    private string _searchQuery = "";
+    private string searchQuery
+    {
+        get => _searchQuery;
+        set
+        {
+            if (_searchQuery == value) return;
+            _searchQuery = value ?? "";
+            _ = LoadSongSearchAsync();
+        }
+    }
+
+    private List<SearchSongVm> searchResults = new();
+    private bool isSearching = false;
+
+    private bool showSearchResults =>
+        !string.IsNullOrWhiteSpace(searchQuery) && searchQuery.Trim().Length >= 2;
+
+    private string searchRequestId = "";
+
     private bool isPlaying = false;
     private double progress = 0;
     private double volume = 70;
@@ -147,7 +196,6 @@
     private List<Song> popularSongs = new()
     {
         new Song { Title="About You", Artist="The 1975", Image="images/AboutYou.png", AudioPath="audios/about_you.mp3" },
-
         new Song { Title = "We Can't Be Friends", Artist = "Ariana Grande", Image = "images/ariana.png", AudioPath = "audios/ariana_friends.mp3" },
         new Song { Title = "Baby", Artist = "Justin Bieber", Image = "images/baby.png", AudioPath = "audios/baby.mp3" },
         new Song { Title = "Officially Christmas", Artist = "Dan + Shay", Image = "Artist Profile Images/Dan+Shay.jpg", AudioPath = "audios/Dan + Shay - Officially Christmas (Official Audio).mp3" },
@@ -198,6 +246,96 @@
         {
             await JSRuntime.InvokeVoidAsync("initializeAudioPlayer");
         }
+    }
+
+    private async Task LoadSongSearchAsync()
+    {
+        var q = (searchQuery ?? "").Trim();
+        if (q.Length < 2)
+        {
+            searchResults.Clear();
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        var requestId = Guid.NewGuid().ToString("N");
+        searchRequestId = requestId;
+
+        isSearching = true;
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            using var db = DbFactory.CreateDbContext();
+
+            var results = await (
+                from s in db.Song
+                join a in db.Artist on s.ArtistId equals a.Id
+                where (s.Title ?? "").Contains(q)
+                orderby s.Title
+                select new SearchSongVm
+                {
+                    Title = s.Title ?? "",
+                    ArtistName = a.Name ?? "",
+                    CoverArt = s.Cover_Art ?? "",
+                    AudioPath = s.Audio_File ?? "",
+                }
+            ).Take(12).ToListAsync();
+
+            // Drop stale responses if user typed again
+            if (searchRequestId != requestId) return;
+
+            searchResults = results;
+        }
+        catch
+        {
+            if (searchRequestId != requestId) return;
+            searchResults = new();
+        }
+        finally
+        {
+            if (searchRequestId == requestId)
+            {
+                isSearching = false;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+    }
+
+    private async Task PlayFromSearch(SearchSongVm r)
+    {
+        // Only play if the admin-added song has an audio file path.
+        if (string.IsNullOrWhiteSpace(r.AudioPath))
+            return;
+
+        // Build a queue that includes DB search results plus your existing sample lists.
+        var dbSongs = searchResults
+            .Where(x => !string.IsNullOrWhiteSpace(x.AudioPath))
+            .Select(x => new Song
+            {
+                Title = x.Title,
+                Artist = x.ArtistName,
+                Image = GetImageSrc(x.CoverArt),
+                AudioPath = x.AudioPath
+            })
+            .ToList();
+
+        playbackQueue = dbSongs
+            .Concat(popularSongs)
+            .Concat(newReleases)
+            .GroupBy(s => (s.AudioPath ?? "").Trim().ToLowerInvariant())
+            .Select(g => g.First())
+            .ToList();
+
+        currentIndex = playbackQueue.FindIndex(s =>
+            string.Equals((s.AudioPath ?? "").Trim(), (r.AudioPath ?? "").Trim(), StringComparison.OrdinalIgnoreCase));
+
+        if (currentIndex < 0)
+            currentIndex = 0;
+
+        shuffleHistory.Clear();
+
+        await PlayIndex(currentIndex, forcePlay: true);
     }
 
     private async Task EnsureEndedWiredAndRepeatApplied()
@@ -435,6 +573,20 @@
         return string.Join("/", encodedParts);
     }
 
+    private static string GetImageSrc(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "images/default-cover.jpg";
+        value = value.Trim();
+
+        if (value.StartsWith("//")) return "https:" + value;
+        if (value.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+            return "https://" + value.Substring("http://".Length);
+        if (value.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            return value;
+
+        return "/" + value.TrimStart('/');
+    }
+
     [JSInvokable]
     public async Task OnAudioEnded()
     {
@@ -486,6 +638,14 @@
     {
         public string Name { get; set; } = "";
         public string Image { get; set; } = "";
+    }
+
+    private class SearchSongVm
+    {
+        public string Title { get; set; } = "";
+        public string ArtistName { get; set; } = "";
+        public string CoverArt { get; set; } = "";
+        public string AudioPath { get; set; } = "";
     }
 
     public async ValueTask DisposeAsync()
