@@ -132,11 +132,11 @@
     margin-bottom: 25px;
 }
 
-.music-section h2 {
-    font-size: 20px;
-    margin-bottom: 10px;
-    color: #fff;
-}
+    .music-section h2 {
+        font-size: 20px;
+        margin-bottom: 10px;
+        color: #fff;
+    }
 
 /* Scroll wrapper: keeps section position, adds horizontal scroll */
 .row-scroll {
@@ -148,10 +148,10 @@
     -ms-overflow-style: none;
 }
 
-.row-scroll::-webkit-scrollbar {
-    width: 0;
-    height: 0;
-}
+    .row-scroll::-webkit-scrollbar {
+        width: 0;
+        height: 0;
+    }
 
 /* Keep your original "grid feel", but allow it to extend wider than container */
 .music-grid,
@@ -177,30 +177,44 @@
     width: 145px;
 }
 
-.music-card:hover,
-.artist-card:hover {
-    transform: scale(1.05);
-    background-color: #2a2a2a;
+/* Remove underline / link styling for artist card anchors */
+.artist-card {
+    text-decoration: none;
+    color: inherit;
 }
 
-.music-card img,
-.artist-card img {
-    width: 100%;
-    height: 70%;
-    object-fit: cover;
-    border-radius: 8px;
-    margin-bottom: 8px;
-}
+    .artist-card:hover,
+    .artist-card:focus,
+    .artist-card:active,
+    .artist-card:visited {
+        text-decoration: none;
+        color: inherit;
+    }
 
-.music-card h4,
-.artist-card h4 {
-    font-size: 14px;
-    margin-bottom: 3px;
-    color: #fff;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
+    .music-card:hover,
+    .artist-card:hover {
+        transform: scale(1.05);
+        background-color: #2a2a2a;
+    }
+
+    .music-card img,
+    .artist-card img {
+        width: 100%;
+        height: 70%;
+        object-fit: cover;
+        border-radius: 8px;
+        margin-bottom: 8px;
+    }
+
+    .music-card h4,
+    .artist-card h4 {
+        font-size: 14px;
+        margin-bottom: 3px;
+        color: #fff;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 
 .music-card p {
     font-size: 12px;
@@ -230,12 +244,12 @@
     overflow: hidden;
 }
 
-.video-frame video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-}
+    .video-frame video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
 
 .player-box {
     background-color: #1e1e1e;
@@ -273,11 +287,11 @@
     gap: 14px;
 }
 
-.player-left img {
-    width: 82px;
-    height: 82px;
-    border-radius: 10px;
-}
+    .player-left img {
+        width: 82px;
+        height: 82px;
+        border-radius: 10px;
+    }
 
 .song-info h4 {
     font-size: 18px;
@@ -309,14 +323,14 @@
     transition: transform 0.2s ease;
 }
 
-.control-icon:hover {
-    transform: scale(1.1);
-}
+    .control-icon:hover {
+        transform: scale(1.1);
+    }
 
-.control-icon.main {
-    width: 32px;
-    height: 32px;
-}
+    .control-icon.main {
+        width: 32px;
+        height: 32px;
+    }
 
 #progressBar {
     width: 100%;
@@ -340,11 +354,11 @@
     margin-top: 10px;
 }
 
-.volume-control input {
-    width: 120px;
-    accent-color: #1db954;
-    cursor: pointer;
-}
+    .volume-control input {
+        width: 120px;
+        accent-color: #1db954;
+        cursor: pointer;
+    }
 
 /* Responsive Design */
 @media (max-width: 1200px) {

@@ -4,6 +4,7 @@
 @using Microsoft.EntityFrameworkCore
 @using Microsoft.JSInterop
 @using Museek.Data
+@using Museek.Domain
 @inject IJSRuntime JSRuntime
 @inject IDbContextFactory<MuseekContext> DbFactory
 
@@ -78,10 +79,10 @@
                 <div class="artist-grid">
                     @foreach (var artist in trendingArtists)
                     {
-                        <div class="artist-card">
+                        <a class="artist-card" href="@($"/albums?artistId={artist.Id}")">
                             <img src="@artist.Image" alt="@artist.Name">
                             <h4>@artist.Name</h4>
-                        </div>
+                        </a>
                     }
                 </div>
             </div>
@@ -192,43 +193,20 @@
 
     private bool showPlayer = false;
 
-    // Sample data
-    private List<Song> popularSongs = new()
-    {
-        new Song { Title="About You", Artist="The 1975", Image="images/AboutYou.png", AudioPath="audios/about_you.mp3" },
-        new Song { Title = "We Can't Be Friends", Artist = "Ariana Grande", Image = "images/ariana.png", AudioPath = "audios/ariana_friends.mp3" },
-        new Song { Title = "Baby", Artist = "Justin Bieber", Image = "images/baby.png", AudioPath = "audios/baby.mp3" },
-        new Song { Title = "Officially Christmas", Artist = "Dan + Shay", Image = "Artist Profile Images/Dan+Shay.jpg", AudioPath = "audios/Dan + Shay - Officially Christmas (Official Audio).mp3" },
-        new Song { Title = "Blue", Artist = "Yung Kai", Image = "images/blue.png", AudioPath = "audios/blue.mp3" }
-    };
+    private List<HomeSongCard> popularSongs = new();
+    private List<HomeArtistCard> trendingArtists = new();
+    private List<HomeSongCard> newReleases = new();
 
-    private List<Artist> trendingArtists = new()
-    {
-        new Artist { Name = "The Weekend", Image = "images/The Weekend.png" },
-        new Artist { Name = "Lana Del Rey", Image = "images/Lana Del Rey.png" },
-        new Artist { Name = "Billie Eilish", Image = "images/Billie Eilish.png" },
-        new Artist { Name = "Mariah Carey", Image = "Artist Profile Images/Mariah Carey.jpg" },
-        new Artist { Name = "Justin Bieber", Image = "Artist Profile Images/Justin Bieber.jpg" }
-    };
-
-    private List<Song> newReleases = new()
-    {
-        new Song { Title = "Dusk Till Dawn", Artist = "ZAYN", Image = "images/Dusk Till Dawn.png", AudioPath = "audios/Dusk Till Dawn.mp3" },
-        new Song { Title = "Robbers", Artist = "The 1975", Image = "images/Robbers.png", AudioPath = "audios/Robbers.mp3" },
-        new Song { Title = "Mistletoe", Artist = "Justin Bieber", Image = "images/Mistletoe.jpg", AudioPath = "audios/Justin Bieber - Mistletoe (Official Music Video).mp3" },
-        new Song { Title = "Jungle Bell Rock", Artist = "Bobby Helms", Image = "images/JingleBellRock.jpg", AudioPath = "audios/Bobby Helms - Jingle Bell Rock (Lyrics).mp3" },
-        new Song { Title = "Give Me Your Forever", Artist = "Zack Tabudlo", Image = "images/GMYF.png", AudioPath = "audios/Give Me Your Forever.mp3" }
-    };
-
-    private Song currentSong = new Song
+    private HomeSongCard currentSong = new HomeSongCard
     {
         Title = "",
         Artist = "",
         Image = "",
-        AudioPath = ""
+        AudioPath = "",
+        SongId = 0
     };
 
-    private List<Song> playbackQueue = new();
+    private List<HomeSongCard> playbackQueue = new();
     private int currentIndex = -1;
 
     private bool shuffleOn = false;
@@ -240,12 +218,77 @@
     private DotNetObjectReference<object>? dotNetRef;
     private bool jsWired = false;
 
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadHomeRandomDataAsync();
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             await JSRuntime.InvokeVoidAsync("initializeAudioPlayer");
         }
+    }
+
+    private async Task LoadHomeRandomDataAsync()
+    {
+        using var db = DbFactory.CreateDbContext();
+
+        // Popular Songs: random songs from DB
+        popularSongs = await GetRandomSongCardsAsync(db, take: 12);
+
+        // New Releases: random songs from DB (still random, no ReleasedDate in Song entity)
+        newReleases = await GetRandomSongCardsAsync(db, take: 12);
+
+        // Trending Artists: random artists from DB
+        trendingArtists = await GetRandomArtistCardsAsync(db, take: 12);
+
+        // Build a default playback queue from popular + new releases
+        playbackQueue = popularSongs
+            .Concat(newReleases)
+            .Where(s => !string.IsNullOrWhiteSpace(s.AudioPath))
+            .GroupBy(s => (s.AudioPath ?? "").Trim().ToLowerInvariant())
+            .Select(g => g.First())
+            .ToList();
+    }
+
+    private static async Task<List<HomeSongCard>> GetRandomSongCardsAsync(MuseekContext db, int take)
+    {
+        // OrderBy(Guid.NewGuid()) works with SQL Server EF Core
+        // If you use a different provider and it fails, tell me which DB you use and I will switch to provider-safe random.
+        var rows = await (
+            from s in db.Song.AsNoTracking()
+            join a in db.Artist.AsNoTracking() on s.ArtistId equals a.Id
+            orderby Guid.NewGuid()
+            select new HomeSongCard
+            {
+                SongId = s.Id,
+                Title = s.Title ?? "Untitled",
+                Artist = a.Name ?? "Unknown Artist",
+                Image = GetImageSrc(s.Cover_Art),
+                AudioPath = s.Audio_File ?? ""
+            }
+        ).Take(take).ToListAsync();
+
+        return rows;
+    }
+
+    private static async Task<List<HomeArtistCard>> GetRandomArtistCardsAsync(MuseekContext db, int take)
+    {
+        var rows = await db.Artist
+            .AsNoTracking()
+            .OrderBy(a => Guid.NewGuid())
+            .Select(a => new HomeArtistCard
+            {
+                Id = a.Id,
+                Name = a.Name ?? "Unknown Artist",
+                Image = GetImageSrc(a.Profile_Pic)
+            })
+            .Take(take)
+            .ToListAsync();
+
+        return rows;
     }
 
     private async Task LoadSongSearchAsync()
@@ -279,10 +322,10 @@
                     ArtistName = a.Name ?? "",
                     CoverArt = s.Cover_Art ?? "",
                     AudioPath = s.Audio_File ?? "",
+                    SongId = s.Id
                 }
             ).Take(12).ToListAsync();
 
-            // Drop stale responses if user typed again
             if (searchRequestId != requestId) return;
 
             searchResults = results;
@@ -304,15 +347,14 @@
 
     private async Task PlayFromSearch(SearchSongVm r)
     {
-        // Only play if the admin-added song has an audio file path.
         if (string.IsNullOrWhiteSpace(r.AudioPath))
             return;
 
-        // Build a queue that includes DB search results plus your existing sample lists.
         var dbSongs = searchResults
             .Where(x => !string.IsNullOrWhiteSpace(x.AudioPath))
-            .Select(x => new Song
+            .Select(x => new HomeSongCard
             {
+                SongId = x.SongId,
                 Title = x.Title,
                 Artist = x.ArtistName,
                 Image = GetImageSrc(x.CoverArt),
@@ -323,6 +365,7 @@
         playbackQueue = dbSongs
             .Concat(popularSongs)
             .Concat(newReleases)
+            .Where(s => !string.IsNullOrWhiteSpace(s.AudioPath))
             .GroupBy(s => (s.AudioPath ?? "").Trim().ToLowerInvariant())
             .Select(g => g.First())
             .ToList();
@@ -356,12 +399,18 @@
         await JSRuntime.InvokeVoidAsync("togglePlayPause");
     }
 
-    private async Task PlaySong(Song song)
+    private async Task PlaySong(HomeSongCard song)
     {
-        playbackQueue = popularSongs.Concat(newReleases).ToList();
+        // Build queue from current sections so refresh changes the queue
+        playbackQueue = popularSongs
+            .Concat(newReleases)
+            .Where(s => !string.IsNullOrWhiteSpace(s.AudioPath))
+            .GroupBy(s => (s.AudioPath ?? "").Trim().ToLowerInvariant())
+            .Select(g => g.First())
+            .ToList();
 
         currentIndex = playbackQueue.FindIndex(s =>
-            string.Equals(s.AudioPath, song.AudioPath, StringComparison.OrdinalIgnoreCase));
+            string.Equals((s.AudioPath ?? "").Trim(), (song.AudioPath ?? "").Trim(), StringComparison.OrdinalIgnoreCase));
 
         if (currentIndex < 0)
             currentIndex = 0;
@@ -379,8 +428,9 @@
         currentIndex = index;
 
         var s = playbackQueue[currentIndex];
-        currentSong = new Song
+        currentSong = new HomeSongCard
         {
+            SongId = s.SongId,
             Title = s.Title,
             Artist = s.Artist,
             Image = s.Image,
@@ -426,12 +476,13 @@
         isPlaying = false;
         showPlayer = false;
 
-        currentSong = new Song
+        currentSong = new HomeSongCard
         {
             Title = "",
             Artist = "",
             Image = "",
-            AudioPath = ""
+            AudioPath = "",
+            SongId = 0
         };
 
         progress = 0;
@@ -626,22 +677,25 @@
         await PlayIndex(nextIndex, forcePlay: true);
     }
 
-    public class Song
+    private class HomeSongCard
     {
+        public int SongId { get; set; }
         public string Title { get; set; } = "";
         public string Artist { get; set; } = "";
         public string Image { get; set; } = "";
         public string AudioPath { get; set; } = "";
     }
 
-    public class Artist
+    private class HomeArtistCard
     {
+        public int Id { get; set; }
         public string Name { get; set; } = "";
         public string Image { get; set; } = "";
     }
 
     private class SearchSongVm
     {
+        public int SongId { get; set; }
         public string Title { get; set; } = "";
         public string ArtistName { get; set; } = "";
         public string CoverArt { get; set; } = "";

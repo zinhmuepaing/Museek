@@ -12,113 +12,305 @@
 
 <PageTitle>Create Curated Playlist</PageTitle>
 
-<div class="form-page">
-    <h1 class="page-title">New Curated Playlist</h1>
+<div class="curated-create-page">
+    <div class="curated-create-head">
+        <div class="head-left">
+            <h1 class="head-title">Create Curated Playlist</h1>
+            <div class="head-subtitle">Curate a collection that will be featured on the discover page</div>
+        </div>
+
+        <div class="head-right">
+            <div class="pill">
+                <div class="pill-label">Selected</div>
+                <div class="pill-value">@selectedSongIds.Count</div>
+            </div>
+        </div>
+    </div>
 
     <EditForm Model="Playlist" OnValidSubmit="AddPlaylist">
         <DataAnnotationsValidator />
-        <ValidationSummary class="text-danger" />
+        <ValidationSummary class="validation-summary" />
 
-        <div class="field">
-            <label>Name</label>
-            <InputText class="input" @bind-Value="Playlist.Name" />
-        </div>
+        <div class="curated-create-layout">
+            <!-- LEFT: Form -->
+            <aside class="left-panel">
+                <div class="panel-card">
+                    <div class="panel-card-header">
+                        <div class="panel-title">Playlist Details</div>
+                        <div class="panel-hint">Fill this first. Then pick songs on the right.</div>
+                    </div>
 
-        <div class="field">
-            <label>Description</label>
-            <InputText class="input" @bind-Value="Playlist.Description" />
-        </div>
-
-        <div class="field">
-            <label>Category</label>
-
-            <div class="category-picker">
-                <div class="category-top">
-                    <input class="input category-input"
-                           placeholder="Search or type a new category"
-                           value="@categorySearch"
-                           @oninput="OnCategoryInput" />
-
-                    <button type="button"
-                            class="cat-btn"
-                            @onclick="UseTypedCategory"
-                            disabled="@string.IsNullOrWhiteSpace(categorySearch)">
-                        Use
-                    </button>
-                </div>
-
-                <div class="category-list">
-                    @if (FilteredCategories.Count == 0)
-                    {
-                        <div class="category-empty">
-                            No categories found. Type above and click Use to create a new one.
+                    <div class="panel-card-body">
+                        <div class="field">
+                            <label class="label">Playlist Name</label>
+                            <InputText class="input" @bind-Value="Playlist.Name" placeholder="e.g., Top Rated Songs" />
                         </div>
-                    }
-                    else
+
+                        <div class="field">
+                            <label class="label">Description</label>
+                            <InputText class="input" @bind-Value="Playlist.Description" placeholder="e.g., Our users' favorite tracks" />
+                        </div>
+
+                        <div class="field">
+                            <div class="label-row">
+                                <label class="label">Cover Image</label>
+                                <span class="optional">Optional</span>
+                            </div>
+
+                            <div class="cover-block">
+                                <div class="cover-preview">
+                                    <img src="@CoverPreviewSrc" class="cover-img" alt="Cover preview" />
+                                </div>
+
+                                <div class="cover-actions">
+                                    <InputFile OnChange="OnCoverSelected" accept="image/*" class="file-hidden" id="cover-input" />
+                                    <label class="btn btn-ghost" for="cover-input">Choose image</label>
+                                    <div class="help">PNG, JPG, WEBP up to 5 MB</div>
+
+                                    @if (!string.IsNullOrWhiteSpace(uploadError))
+                                    {
+                                        <div class="error">@uploadError</div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <label class="label">Category</label>
+
+                            <div class="category-card">
+                                <div class="category-top">
+                                    <input class="input category-input"
+                                           placeholder="Search or create..."
+                                           value="@categorySearch"
+                                           @oninput="OnCategoryInput" />
+
+                                    <button type="button"
+                                            class="btn btn-primary"
+                                            @onclick="UseTypedCategory"
+                                            disabled="@string.IsNullOrWhiteSpace(categorySearch)">
+                                        Use
+                                    </button>
+                                </div>
+
+                                <div class="category-list">
+                                    @if (FilteredCategories.Count == 0)
+                                    {
+                                        <div class="category-empty">No categories. Type above and click Use.</div>
+                                    }
+                                    else
+                                    {
+                                        @foreach (var c in FilteredCategories)
+                                        {
+                                            var isSelected = string.Equals(selectedCategory, c, StringComparison.OrdinalIgnoreCase);
+                                            <button type="button"
+                                                    class="category-item @(isSelected ? "selected" : "")"
+                                                    @onclick="(() => SelectCategory(c))">
+                                                <span class="category-name">@c</span>
+                                                @if (isSelected)
+                                                {
+                                                    <span class="category-check">✓</span>
+                                                }
+                                            </button>
+                                        }
+                                    }
+                                </div>
+
+                                <div class="category-bottom">
+                                    <div class="selected-row">
+                                        <input class="input selected-input"
+                                               value="@(selectedCategory ?? "")"
+                                               placeholder="None"
+                                               disabled />
+
+                                        <button type="button"
+                                                class="btn btn-danger"
+                                                @onclick="ClearCategory"
+                                                disabled="@string.IsNullOrWhiteSpace(selectedCategory)">
+                                            Clear
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <div class="form-actions">
+                                <button class="btn btn-primary btn-big" type="submit" disabled="@(selectedSongIds.Count == 0)">
+                                    Create Playlist
+                                </button>
+                                <a class="btn btn-ghost btn-big" href="/curatedplaylists">Cancel</a>
+                            </div>
+
+                            <div class="tiny-note">
+                                You must select at least 1 song to create a curated playlist.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- RIGHT: Songs -->
+            <section class="right-panel">
+                <div class="panel-card">
+                    <div class="songs-top">
+                        <div class="tabs">
+                            <button type="button"
+                                    class="tab @(playlistMode == "manual" ? "active" : "")"
+                                    @onclick='() => SetMode("manual")'>
+                                Manual
+                            </button>
+                            <button type="button"
+                                    class="tab @(playlistMode == "rating" ? "active" : "")"
+                                    @onclick='() => SetMode("rating")'>
+                                Rating Based
+                            </button>
+                        </div>
+
+                        <div class="top-meta">
+                            <div class="mini-pill">
+                                <div class="mini-label">Selected</div>
+                                <div class="mini-value">@selectedSongIds.Count</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    @if (playlistMode == "rating")
                     {
-                        @foreach (var c in FilteredCategories)
-                        {
-                            var isSelected = string.Equals(selectedCategory, c, StringComparison.OrdinalIgnoreCase);
+                        <div class="rating-bar">
+                            <div class="rating-left">
+                                <div class="rating-title">Filter by rating</div>
+                                <div class="rating-sub">@GetRatingRangeDescription()</div>
+                            </div>
 
-                            <div class="category-row">
-                                <div class="category-name">@c</div>
+                            <div class="rating-controls">
+                                <select class="select" @bind="minRating">
+                                    <option value="1">1 ★</option>
+                                    <option value="2">2 ★</option>
+                                    <option value="3">3 ★</option>
+                                    <option value="4">4 ★</option>
+                                    <option value="5">5 ★</option>
+                                </select>
 
-                                <button type="button"
-                                        class="cat-pick @(isSelected ? "selected" : "")"
-                                        @onclick="(() => SelectCategory(c))">
-                                    @(isSelected ? "Selected" : "Select")
+                                <span class="to">to</span>
+
+                                <select class="select" @bind="maxRating">
+                                    <option value="1">1 ★</option>
+                                    <option value="2">2 ★</option>
+                                    <option value="3">3 ★</option>
+                                    <option value="4">4 ★</option>
+                                    <option value="5">5 ★</option>
+                                </select>
+
+                                <button type="button" class="btn btn-primary" @onclick="LoadRatedSongs">
+                                    Load songs
                                 </button>
                             </div>
+                        </div>
+                    }
+
+                    <div class="search-row">
+                        <div class="search">
+                            <img src="images/search.png" class="search-ic" alt="Search" />
+                            <input type="text"
+                                   class="search-input"
+                                   placeholder="Search songs by title or artist..."
+                                   @bind="songSearchText" />
+                        </div>
+
+                        <div class="hint-right">
+                            Click a card to select or unselect.
+                        </div>
+                    </div>
+
+                    <div class="songs-grid">
+                        @if (FilteredSongs.Count == 0)
+                        {
+                            <div class="empty-state">
+                                @if (playlistMode == "rating")
+                                {
+                                    <div class="empty-title">No songs loaded</div>
+                                    <div class="empty-sub">Pick a rating range and click Load songs.</div>
+                                }
+                                else
+                                {
+                                    <div class="empty-title">No songs found</div>
+                                    <div class="empty-sub">Try a different search term.</div>
+                                }
+                            </div>
                         }
-                    }
+                        else
+                        {
+                            @foreach (var s in FilteredSongs)
+                            {
+                                var alreadyIn = selectedSongIds.Contains(s.Id);
+                                var artist = artists.FirstOrDefault(a => a.Id == s.ArtistId);
+                                var avgRating = songRatings.ContainsKey(s.Id) ? songRatings[s.Id].Average : 0;
+                                var ratingCount = songRatings.ContainsKey(s.Id) ? songRatings[s.Id].Count : 0;
+
+                                <div class="music-card-wrapper">
+                                    <button type="button"
+                                            class="music-card @(alreadyIn ? "selected" : "")"
+                                            @onclick="() => ToggleSong(s.Id)">
+
+                                        <img src="@(!string.IsNullOrWhiteSpace(s.Cover_Art) ? s.Cover_Art : "images/default-cover.png")"
+                                             class="music-img"
+                                             alt="@s.Title" />
+
+                                        @if (alreadyIn)
+                                        {
+                                            <div class="picked-badge">
+                                                <span class="picked-check">✓</span>
+                                            </div>
+                                        }
+
+                                        @if (playlistMode == "rating" && ratingCount > 0)
+                                        {
+                                            <div class="rating-badge">
+                                                <span class="badge-star">★</span>
+                                            </div>
+                                        }
+
+                                        <div class="music-meta">
+                                            <div class="music-title">@s.Title</div>
+                                            <div class="music-desc">@(artist?.Name ?? "Unknown Artist")</div>
+
+                                            <div class="music-stats">
+                                                @if (playlistMode == "rating")
+                                                {
+                                                    if (ratingCount > 0)
+                                                    {
+                                                        <span class="stat-item">
+                                                            @avgRating.ToString("F1") ★
+                                                        </span>
+                                                        <span class="stat-item">
+                                                            @ratingCount ratings
+                                                        </span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="stat-muted">No ratings yet</span>
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    <span class="stat-muted">Tap to select</span>
+                                                }
+                                            </div>
+                                        </div>
+                                    </button>
+                                </div>
+                            }
+                        }
+                    </div>
                 </div>
-
-                <div class="category-selected">
-                    <div class="category-selected-label">Selected</div>
-                    <input class="input category-selected-input"
-                           value="@(selectedCategory ?? "")"
-                           placeholder="No category selected"
-                           disabled />
-                    <button type="button"
-                            class="cat-clear"
-                            @onclick="ClearCategory"
-                            disabled="@string.IsNullOrWhiteSpace(selectedCategory)">
-                        Clear
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <div class="field">
-            <label>Cover Image (optional)</label>
-
-            <div class="cover-card">
-                <div class="cover-thumb-wrap">
-                    <img class="cover-thumb" src="@CoverPreviewSrc" alt="Cover preview" />
-                </div>
-
-                <div class="cover-right">
-                    <InputFile OnChange="OnCoverSelected" accept="image/*" />
-                    <div class="hint">PNG, JPG, WEBP. Max 5 MB.</div>
-
-                    @if (!string.IsNullOrWhiteSpace(uploadError))
-                    {
-                        <div class="error">@uploadError</div>
-                    }
-                </div>
-            </div>
-        </div>
-
-        <div class="actions">
-            <button class="primary" type="submit">Create</button>
-            <a class="secondary" href="/curatedplaylists">Cancel</a>
+            </section>
         </div>
     </EditForm>
 </div>
 
 @code {
     private Playlist Playlist { get; set; } = new();
-
     private IBrowserFile? selectedCoverFile;
     private string? coverDataUrl;
     private string uploadError = "";
@@ -126,6 +318,18 @@
     private List<string> categories = new();
     private string categorySearch = "";
     private string? selectedCategory;
+
+    private string playlistMode = "manual";
+    private int minRating = 4;
+    private int maxRating = 5;
+
+    private List<Song> allSongs = new();
+    private List<Song> displayedSongs = new();
+    private List<Artist> artists = new();
+    private Dictionary<int, (double Average, int Count)> songRatings = new();
+
+    private HashSet<int> selectedSongIds = new();
+    private string songSearchText = "";
 
     private string CoverPreviewSrc =>
         !string.IsNullOrWhiteSpace(coverDataUrl) ? coverDataUrl : "images/default-cover.jpg";
@@ -136,7 +340,7 @@
 
         var raw = await db.Playlist
             .AsNoTracking()
-            .Where(p => p.IsCurated == true && p.IsPublic == true && p.CuratedCategory != null)
+            .Where(p => p.IsCurated == true && p.IsPublic == true && p.CuratedCategory != null && !p.CuratedCategory.StartsWith("rating:"))
             .Select(p => p.CuratedCategory!)
             .ToListAsync();
 
@@ -146,14 +350,108 @@
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(x => x)
             .ToList();
+
+        allSongs = await db.Song.AsNoTracking().ToListAsync();
+        artists = await db.Artist.AsNoTracking().ToListAsync();
+
+        displayedSongs = allSongs.OrderBy(s => s.Title).ToList();
+
+        await LoadAllRatings();
+    }
+
+    private async Task LoadAllRatings()
+    {
+        using var db = DbFactory.CreateDbContext();
+
+        var ratings = await db.Rating
+            .AsNoTracking()
+            .GroupBy(r => r.SongId)
+            .Select(g => new
+            {
+                SongId = g.Key,
+                Average = g.Average(r => r.Value),
+                Count = g.Count()
+            })
+            .ToListAsync();
+
+        songRatings = ratings.ToDictionary(x => x.SongId, x => (x.Average, x.Count));
+    }
+
+    private async Task LoadRatedSongs()
+    {
+        if (minRating > maxRating)
+        {
+            var temp = minRating;
+            minRating = maxRating;
+            maxRating = temp;
+        }
+
+        var songsInRange = songRatings
+            .Where(kvp => kvp.Value.Average >= minRating && kvp.Value.Average <= maxRating)
+            .OrderByDescending(kvp => kvp.Value.Average)
+            .ThenByDescending(kvp => kvp.Value.Count)
+            .Select(kvp => kvp.Key)
+            .ToList();
+
+        displayedSongs = allSongs
+            .Where(s => songsInRange.Contains(s.Id))
+            .ToList();
+
+        StateHasChanged();
+    }
+
+    private void SetMode(string mode)
+    {
+        playlistMode = mode;
+        songSearchText = "";
+
+        if (mode == "manual")
+        {
+            displayedSongs = allSongs.OrderBy(s => s.Title).ToList();
+        }
+        else
+        {
+            displayedSongs = new();
+        }
+    }
+
+    private List<Song> FilteredSongs =>
+        string.IsNullOrWhiteSpace(songSearchText)
+            ? displayedSongs
+            : displayedSongs.Where(s =>
+                (s.Title ?? "").Contains(songSearchText, StringComparison.OrdinalIgnoreCase)
+                || (artists.FirstOrDefault(a => a.Id == s.ArtistId)?.Name ?? "").Contains(songSearchText, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+    private void ToggleSong(int songId)
+    {
+        if (selectedSongIds.Contains(songId))
+        {
+            selectedSongIds.Remove(songId);
+        }
+        else
+        {
+            selectedSongIds.Add(songId);
+        }
+    }
+
+    private string GetRatingRangeDescription()
+    {
+        if (minRating == maxRating)
+            return $"{minRating} star songs only";
+        if (minRating == 4 && maxRating == 5)
+            return "Best rated (4 to 5 stars)";
+        if (minRating == 2 && maxRating == 3)
+            return "Good songs (2 to 3 stars)";
+        if (minRating == 1 && maxRating == 1)
+            return "Needs improvement (1 star)";
+        return $"{minRating} to {maxRating} stars";
     }
 
     private List<string> FilteredCategories =>
         string.IsNullOrWhiteSpace(categorySearch)
             ? categories
-            : categories
-                .Where(c => c.Contains(categorySearch.Trim(), StringComparison.OrdinalIgnoreCase))
-                .ToList();
+            : categories.Where(c => c.Contains(categorySearch.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
 
     private void OnCategoryInput(ChangeEventArgs e)
     {
@@ -250,8 +548,15 @@
         Playlist.IsCurated = true;
         Playlist.IsPublic = true;
 
-        var normalizedCategory = NormalizeCategoryOrNull(selectedCategory);
-        Playlist.CuratedCategory = normalizedCategory;
+        if (playlistMode == "rating")
+        {
+            Playlist.CuratedCategory = $"rating:{minRating}-{maxRating}";
+        }
+        else
+        {
+            var normalizedCategory = NormalizeCategoryOrNull(selectedCategory);
+            Playlist.CuratedCategory = normalizedCategory;
+        }
 
         Playlist.UserId = currentUserId;
         Playlist.CreatedBy = currentUserId;
@@ -260,6 +565,23 @@
         Playlist.DateUpdated = DateTime.Now;
 
         db.Playlist.Add(Playlist);
+        await db.SaveChangesAsync();
+
+        foreach (var songId in selectedSongIds)
+        {
+            var link = new PlaylistSong
+            {
+                PlaylistId = Playlist.Id,
+                SongId = songId,
+                DateCreated = DateTime.Now,
+                DateUpdated = DateTime.Now,
+                CreatedBy = currentUserId,
+                UpdatedBy = currentUserId
+            };
+
+            db.PlaylistSong.Add(link);
+        }
+
         await db.SaveChangesAsync();
 
         NavigationManager.NavigateTo("/curatedplaylists", forceLoad: false);

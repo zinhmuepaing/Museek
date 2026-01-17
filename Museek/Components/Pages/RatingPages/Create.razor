@@ -1,4 +1,4 @@
-﻿@page "/ratings/create"
+﻿@* @page "/ratings/create"
 @using Microsoft.EntityFrameworkCore
 @using Museek.Domain
 @inject IDbContextFactory<Museek.Data.MuseekContext> DbFactory
@@ -72,3 +72,4 @@
         NavigationManager.NavigateTo("/ratings");
     }
 }
+ *@

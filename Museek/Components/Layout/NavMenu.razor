@@ -27,7 +27,7 @@
 
                 <AuthorizeView Roles="Administrator" Context="adminCtx">
                     | <NavLink href="/curatedplaylists">
-                        <img src="images/album.png" class="icon" /> Library
+                        <img src="images/album.png" class="icon" /> Playlists
                     </NavLink>
                 </AuthorizeView>
 
@@ -57,7 +57,7 @@
 
                 <AuthorizeView Roles="Administrator" Context="adminCtx">
                     | <NavLink href="/ratings">
-                        <img src="images/dashboard.png" class="icon" /> Rating
+                        <img src="images/dashboard.png" class="icon" /> Admin Dashboard
                     </NavLink>
                 </AuthorizeView>
             </div>
@@ -76,9 +76,12 @@
                             <span class="bi bi-person-gear me-2"></span> Account Details
                         </NavLink>
 
-                        <NavLink href="/userstats" class="dropdown-item">
-                            <span class="bi bi-graph-up me-2"></span> User Statistics
-                        </NavLink>
+
+                        <AuthorizeView Roles="User" Context="userCtx">
+                            <NavLink href="/userstats" class="dropdown-item">
+                                <span class="bi bi-graph-up me-2"></span> User Statistics
+                            </NavLink>
+                        </AuthorizeView>
 
                         <hr class="dropdown-divider" />
 

@@ -28,14 +28,14 @@
     background: rgba(255, 255, 255, 0.06);
 }
 
-.search-bar input {
-    border: none;
-    outline: none;
-    background: transparent;
-    margin-left: 8px;
-    width: 100%;
-    color: white;
-}
+    .search-bar input {
+        border: none;
+        outline: none;
+        background: transparent;
+        margin-left: 8px;
+        width: 100%;
+        color: white;
+    }
 
 .search-icon {
     width: 18px;
@@ -51,9 +51,9 @@
     border-radius: 14px;
 }
 
-.upload-btn:hover {
-    background: rgba(255, 255, 255, 0.16);
-}
+    .upload-btn:hover {
+        background: rgba(255, 255, 255, 0.16);
+    }
 
 .playlist-grid {
     display: grid;
@@ -73,9 +73,9 @@
     gap: 10px;
 }
 
-.playlist-card:hover {
-    border-color: rgba(255, 255, 255, 0.18);
-}
+    .playlist-card:hover {
+        border-color: rgba(255, 255, 255, 0.18);
+    }
 
 .playlist-img {
     width: 100%;
