@@ -71,7 +71,7 @@ else
             <div class="divider"></div>
 
             <div class="actions">
-                <a class="btn" href="@($"/playlists/details?id={playlist.Id}")">Cancel</a>
+                <a class="btn" href="@CancelHref">Cancel</a>
                 <button class="danger"
                         disabled="@isDeleting"
                         @onclick="DeletePlaylist">
@@ -93,6 +93,9 @@ else
     private Playlist? playlist;
     private int songCount = 0;
     private bool isDeleting = false;
+
+    private string AfterDeleteRoute => isAdmin ? "/curatedplaylists" : "/userlibrary";
+    private string CancelHref => playlist == null ? AfterDeleteRoute : $"/playlists/details?id={playlist.Id}";
 
     private string CoverSrc =>
         !string.IsNullOrWhiteSpace(playlist?.Cover_Image)
@@ -122,14 +125,14 @@ else
         playlist = await context.Playlist.FirstOrDefaultAsync(p => p.Id == Id);
         if (playlist == null)
         {
-            NavigationManager.NavigateTo("notfound");
+            NavigationManager.NavigateTo(AfterDeleteRoute);
             return;
         }
 
         var canDelete = isAdmin || playlist.UserId == currentUserId;
         if (!canDelete)
         {
-            NavigationManager.NavigateTo("/userlibrary");
+            NavigationManager.NavigateTo(AfterDeleteRoute);
             return;
         }
 
@@ -157,6 +160,6 @@ else
         db.Playlist.Remove(playlist);
         await db.SaveChangesAsync();
 
-        NavigationManager.NavigateTo("/userlibrary");
+        NavigationManager.NavigateTo(AfterDeleteRoute);
     }
 }

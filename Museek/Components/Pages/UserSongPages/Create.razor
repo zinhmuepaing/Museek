@@ -340,7 +340,8 @@
             return;
 
         var songId = selectedSong.Id;
-
+        //ps is a row from the PlaylistSong table
+        //Ask the database if there is already a row with this playlistId and songId
         var already = await context.PlaylistSong.AnyAsync(ps => ps.PlaylistId == playlistId && ps.SongId == songId);
         if (already)
         {
@@ -348,6 +349,7 @@
             return;
         }
 
+        //Create a new PlaylistSong row
         var link = new PlaylistSong
         {
             PlaylistId = playlistId,
@@ -359,8 +361,10 @@
         };
 
         context.PlaylistSong.Add(link);
+        //logic to save changes to the database
         await context.SaveChangesAsync();
 
+        //Update the local map if a playlist-song mapping already exists
         if (!playlistSongMap.TryGetValue(playlistId, out var set))
         {
             set = new HashSet<int>();

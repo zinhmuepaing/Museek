@@ -15,51 +15,45 @@
     <AuthorizeView>
         <Authorized>
             <div class="nav-center">
+
                 <NavLink href="/home" Match="NavLinkMatch.All">
                     <img src="images/homeIcon.png" class="icon" /> Home
                 </NavLink>
 
+                @* User-only links *@
                 <AuthorizeView Roles="User" Context="UserCtx">
                     | <NavLink href="/userlibrary">
                         <img src="images/album.png" class="icon" /> Library
                     </NavLink>
-                </AuthorizeView>
 
-                <AuthorizeView Roles="Administrator" Context="adminCtx">
-                    | <NavLink href="/curatedplaylists">
-                        <img src="images/album.png" class="icon" /> Playlists
-                    </NavLink>
-                </AuthorizeView>
-
-                <AuthorizeView Roles="User" Context="adminCtx">
                     | <NavLink href="/discover">
                         <img src="images/search.png" class="icon" /> Discover
                     </NavLink>
-                </AuthorizeView>
 
-                <AuthorizeView Roles="Administrator" Context="adminCtx">
-                    | <NavLink href="/artists">
-                        <img src="images/search.png" class="icon" /> Artists
-                    </NavLink>
-                </AuthorizeView>
-
-                <AuthorizeView Roles="User" Context="UserCtx">
                     | <NavLink href="/usersongs/create">
                         <img src="images/upload.png" class="icon" /> All Songs
                     </NavLink>
                 </AuthorizeView>
 
+                @* Admin-only links *@
                 <AuthorizeView Roles="Administrator" Context="adminCtx">
+                    | <NavLink href="/curatedplaylists">
+                        <img src="images/album.png" class="icon" /> Playlists
+                    </NavLink>
+
+                    | <NavLink href="/artists">
+                        <img src="images/search.png" class="icon" /> Artists
+                    </NavLink>
+
                     | <NavLink href="/songs">
                         <img src="images/upload.png" class="icon" /> Upload Music
                     </NavLink>
-                </AuthorizeView>
 
-                <AuthorizeView Roles="Administrator" Context="adminCtx">
                     | <NavLink href="/ratings">
                         <img src="images/dashboard.png" class="icon" /> Admin Dashboard
                     </NavLink>
                 </AuthorizeView>
+
             </div>
 
             <div class="nav-right">
@@ -76,13 +70,6 @@
                             <span class="bi bi-person-gear me-2"></span> Account Details
                         </NavLink>
 
-
-                        @* <AuthorizeView Roles="User" Context="userCtx">
-                            <NavLink href="/userstats" class="dropdown-item">
-                                <span class="bi bi-graph-up me-2"></span> User Statistics
-                            </NavLink>
-                        </AuthorizeView> *@
-
                         <hr class="dropdown-divider" />
 
                         <form action="/Account/Logout" method="post">
@@ -93,9 +80,11 @@
                             </button>
                         </form>
                     </div>
+
                 </div>
             </div>
         </Authorized>
+
 
         <NotAuthorized>
             <div class="nav-center">

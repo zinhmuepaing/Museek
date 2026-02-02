@@ -2,19 +2,24 @@
     padding: 30px 60px;
     font-family: "Poppins", sans-serif;
     max-width: 720px;
+    width: 100%;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
 }
 
 .page-title {
     font-size: 42px;
     font-weight: 700;
-    margin-bottom: 18px;
+    margin-bottom: 0;
     color: white;
 }
 
 .field {
     display: grid;
     gap: 8px;
-    margin-bottom: 14px;
+    margin-bottom: 0;
 }
 
     .field label {
@@ -30,6 +35,7 @@
     color: white;
     padding: 10px 12px;
     outline: none;
+    width: 100%;
 }
 
 .textarea {
@@ -39,13 +45,14 @@
 
 .cover-card {
     display: grid;
-    grid-template-columns: 96px 1fr;
+    grid-template-columns: 96px minmax(0, 1fr);
     gap: 14px;
     align-items: center;
     border-radius: 16px;
     border: 1px solid rgba(255, 255, 255, 0.10);
     background: rgba(255, 255, 255, 0.04);
     padding: 12px;
+    width: 100%;
 }
 
 .cover-thumb-wrap {
@@ -66,6 +73,7 @@
 .cover-right {
     display: grid;
     gap: 8px;
+    min-width: 0;
 }
 
 .hint {
@@ -81,7 +89,10 @@
 .actions {
     display: flex;
     gap: 10px;
-    margin-top: 18px;
+    margin-top: 0;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    width: 100%;
 }
 
 .primary {
@@ -92,6 +103,8 @@
     background: rgba(255, 105, 249, 0.28);
     color: white;
     font-weight: 800;
+    min-width: 140px;
+    text-align: center;
 }
 
 .secondary {
@@ -101,6 +114,8 @@
     background: rgba(255, 255, 255, 0.10);
     color: white;
     font-weight: 800;
+    min-width: 140px;
+    text-align: center;
 }
 
 @media (max-width: 768px) {
@@ -115,5 +130,16 @@
     .cover-thumb-wrap {
         width: 120px;
         height: 120px;
+    }
+
+    .actions {
+        justify-content: stretch;
+    }
+
+    .primary,
+    .secondary {
+        width: 100%;
+        min-width: 0;
+        text-align: center;
     }
 }

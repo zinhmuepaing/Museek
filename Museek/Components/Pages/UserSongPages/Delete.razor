@@ -97,7 +97,10 @@ else
             return;
         }
 
+        // Remove the UserSong entry from the database
         context.UserSong.Remove(userSong);
+
+        // Save changes to the database
         await context.SaveChangesAsync();
 
         NavigationManager.NavigateTo("/usersongs");

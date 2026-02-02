@@ -5,7 +5,8 @@
 @using Microsoft.JSInterop
 @using Museek.Data
 @using Museek.Domain
-@inject IJSRuntime JSRuntime
+@* call JavaScript functions. *@
+@inject IJSRuntime JSRuntime 
 @inject IDbContextFactory<MuseekContext> DbFactory
 
 <PageTitle>Museek | Home</PageTitle>
@@ -168,11 +169,26 @@
     private string _searchQuery = "";
     private string searchQuery
     {
-        get => _searchQuery;
+        get
+        {
+            return _searchQuery;
+        }
         set
         {
-            if (_searchQuery == value) return;
-            _searchQuery = value ?? "";
+            if (_searchQuery == value)
+            {
+                return;
+            }
+
+            if (value == null)
+            {
+                _searchQuery = "";
+            }
+            else
+            {
+                _searchQuery = value;
+            }
+
             _ = LoadSongSearchAsync();
         }
     }
@@ -180,8 +196,24 @@
     private List<SearchSongVm> searchResults = new();
     private bool isSearching = false;
 
-    private bool showSearchResults =>
-        !string.IsNullOrWhiteSpace(searchQuery) && searchQuery.Trim().Length >= 2;
+    private bool showSearchResults
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(searchQuery))
+            {
+                return false;
+            }
+
+            string trimmed = searchQuery.Trim();
+            if (trimmed.Length >= 2)
+            {
+                return true;
+            }
+
+            return false;
+        }
+    }
 
     private string searchRequestId = "";
 
@@ -255,8 +287,7 @@
 
     private static async Task<List<HomeSongCard>> GetRandomSongCardsAsync(MuseekContext db, int take)
     {
-        // OrderBy(Guid.NewGuid()) works with SQL Server EF Core
-        // If you use a different provider and it fails, tell me which DB you use and I will switch to provider-safe random.
+      
         var rows = await (
             from s in db.Song.AsNoTracking()
             join a in db.Artist.AsNoTracking() on s.ArtistId equals a.Id
